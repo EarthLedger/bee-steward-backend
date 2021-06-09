@@ -82,7 +82,10 @@ pub fn find_by_auth(
         .filter(email.eq(user_email.to_string()))
         .filter(password.eq(user_password.to_string()))
         .first::<User>(&conn)
-        .map_err(|_| ApiError::Unauthorized("Invalid login".into()))?;
+        .map_err(|e| {
+            println!("?{}", e);
+            ApiError::Unauthorized("Invalid login".into())
+        })?;
     Ok(user.into())
 }
 
