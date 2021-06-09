@@ -22,8 +22,7 @@ mod tests {
     #[actix_rt::test]
     async fn it_creates_a_user() {
         let params = CreateUserRequest {
-            first_name: "Satoshi".into(),
-            last_name: "Nakamoto".into(),
+            name: "Satoshi".into(),
             email: "satoshi@nakamotoinstitute.org".into(),
             password: "123456".into(),
         };

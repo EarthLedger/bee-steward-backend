@@ -1,8 +1,7 @@
 table! {
     users (id) {
         id -> Varchar,
-        first_name -> Varchar,
-        last_name -> Varchar,
+        name -> Varchar,
         email -> Varchar,
         password -> Varchar,
         created_by -> Varchar,
