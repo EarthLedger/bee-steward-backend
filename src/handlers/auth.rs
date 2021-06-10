@@ -58,7 +58,7 @@ pub async fn login(
     let user = block(move || find_by_auth(&pool, &params.username, &hashed)).await?;
 
     // Create a JWT
-    let private_claim = PrivateClaim::new(user.id, user.username.clone());
+    let private_claim = PrivateClaim::new(user.id, user.username.clone(), user.role.clone());
     let jwt = create_jwt(private_claim)?;
 
     // Remember the token

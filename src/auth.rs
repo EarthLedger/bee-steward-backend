@@ -10,14 +10,16 @@ use uuid::Uuid;
 pub struct PrivateClaim {
     pub user_id: Uuid,
     pub username: String,
+    pub role: String,
     exp: i64,
 }
 
 impl PrivateClaim {
-    pub fn new(user_id: Uuid, username: String) -> Self {
+    pub fn new(user_id: Uuid, username: String, role: String) -> Self {
         Self {
             user_id,
             username,
+            role,
             exp: (Utc::now() + Duration::hours(CONFIG.jwt_expiration)).timestamp(),
         }
     }
@@ -81,14 +83,14 @@ pub mod tests {
 
     #[test]
     fn it_creates_a_jwt() {
-        let private_claim = PrivateClaim::new(Uuid::new_v4(), EMAIL.into());
+        let private_claim = PrivateClaim::new(Uuid::new_v4(), EMAIL.into(), "admin".to_string());
         let jwt = create_jwt(private_claim);
         assert!(jwt.is_ok());
     }
 
     #[test]
     fn it_decodes_a_jwt() {
-        let private_claim = PrivateClaim::new(Uuid::new_v4(), EMAIL.into());
+        let private_claim = PrivateClaim::new(Uuid::new_v4(), EMAIL.into(), "admin".to_string());
         let jwt = create_jwt(private_claim.clone()).unwrap();
         let decoded = decode_jwt(&jwt).unwrap();
         assert_eq!(private_claim, decoded);

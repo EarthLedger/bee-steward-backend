@@ -8,6 +8,8 @@ extern crate redis_async;
 extern crate serde_derive;
 #[macro_use]
 extern crate validator_derive;
+#[macro_use]
+extern crate log;
 
 use crate::server::server;
 

@@ -12,6 +12,7 @@ pub struct User {
     pub id: String,
     pub username: String,
     pub password: String,
+    pub role: String,
     pub created_by: String,
     pub created_at: NaiveDateTime,
     pub updated_by: String,
@@ -23,6 +24,7 @@ pub struct NewUser {
     pub id: String,
     pub username: String,
     pub password: String,
+    pub role: String,
     pub created_by: String,
     pub updated_by: String,
 }
@@ -32,6 +34,7 @@ pub struct NewUser {
 pub struct UpdateUser {
     pub id: String,
     pub username: String,
+    pub role: String,
     pub updated_by: String,
 }
 
@@ -39,6 +42,7 @@ pub struct UpdateUser {
 pub struct AuthUser {
     pub id: String,
     pub username: String,
+    pub role: String,
 }
 
 /// Get all users
@@ -124,6 +128,7 @@ impl From<NewUser> for User {
             id: user.id,
             username: user.username,
             password: hash(&user.password),
+            role: user.role,
             created_by: user.created_by,
             created_at: Utc::now().naive_utc(),
             updated_by: user.updated_by,
@@ -148,6 +153,7 @@ pub mod tests {
             id: user_id.to_string(),
             username: "Model".to_string(),
             password: "123456".to_string(),
+            role: "admin".to_string(),
             created_by: user_id.to_string(),
             updated_by: user_id.to_string(),
         };
@@ -192,6 +198,7 @@ pub mod tests {
         let update_user = UpdateUser {
             id: user.id.to_string(),
             username: "ModelUpdate".to_string(),
+            role: "admin".to_string(),
             updated_by: user.id.to_string(),
         };
         let updated = update(&get_pool(), &update_user);
@@ -206,6 +213,7 @@ pub mod tests {
         let update_user = UpdateUser {
             id: user_id.to_string(),
             username: "ModelUpdateFailure".to_string(),
+            role: "admin".to_string(),
             updated_by: user_id.to_string(),
         };
         let updated = update(&get_pool(), &update_user);

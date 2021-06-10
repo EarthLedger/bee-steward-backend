@@ -23,6 +23,7 @@ impl FromRequest for AuthUser {
             return ok(AuthUser {
                 id: private_claim.user_id.to_string(),
                 username: private_claim.username,
+                role: private_claim.role,
             });
         }
         err(HttpResponse::Unauthorized().into())

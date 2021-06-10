@@ -1,7 +1,10 @@
 use crate::database::PoolType;
 use crate::errors::ApiError;
 use crate::helpers::{respond_json, respond_ok};
-use crate::models::user::{create, delete, find, get_all, update, NewUser, UpdateUser, User};
+use crate::models::user::{
+    create, delete, find, get_all, update, AuthUser, NewUser, UpdateUser, User,
+};
+use crate::response::Response;
 use crate::validate::validate;
 use actix_web::web::{block, Data, HttpResponse, Json, Path};
 use rayon::prelude::*;
@@ -13,6 +16,7 @@ use validator::Validate;
 pub struct UserResponse {
     pub id: Uuid,
     pub username: String,
+    pub role: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
@@ -31,6 +35,7 @@ pub struct CreateUserRequest {
         message = "password is required and must be at least 6 characters"
     ))]
     pub password: String,
+    pub role: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]
@@ -40,6 +45,7 @@ pub struct UpdateUserRequest {
         message = "name is required and must be at least 3 characters"
     ))]
     pub username: String,
+    pub role: String,
 }
 
 /// Get a user
@@ -49,6 +55,19 @@ pub async fn get_user(
 ) -> Result<Json<UserResponse>, ApiError> {
     let user = block(move || find(&pool, *user_id)).await?;
     respond_json(user)
+}
+
+/// Get login user info
+pub async fn get_login_user_info(
+    auth_user: AuthUser,
+    pool: Data<PoolType>,
+) -> Result<Json<Response<UserResponse>>, ApiError> {
+    let user = block(move || find(&pool, Uuid::parse_str(&auth_user.id).unwrap())).await?;
+    respond_json(Response {
+        code: 200,
+        msg: "success".to_string(),
+        data: user,
+    })
 }
 
 /// Get all users
@@ -61,8 +80,11 @@ pub async fn get_users(pool: Data<PoolType>) -> Result<Json<UsersResponse>, ApiE
 pub async fn create_user(
     pool: Data<PoolType>,
     params: Json<CreateUserRequest>,
+    user: AuthUser,
 ) -> Result<Json<UserResponse>, ApiError> {
     validate(&params)?;
+
+    info!("login user: {:?}", user);
 
     // temporarily use the new user's id for created_at/updated_at
     // update when auth is added
@@ -71,6 +93,7 @@ pub async fn create_user(
         id: user_id.to_string(),
         username: params.username.to_string(),
         password: params.password.to_string(),
+        role: params.role.to_string(),
         created_by: user_id.to_string(),
         updated_by: user_id.to_string(),
     }
@@ -92,6 +115,7 @@ pub async fn update_user(
     let update_user = UpdateUser {
         id: user_id.to_string(),
         username: params.username.to_string(),
+        role: params.role.to_string(),
         updated_by: user_id.to_string(),
     };
     let user = block(move || update(&pool, &update_user)).await?;
@@ -112,6 +136,7 @@ impl From<User> for UserResponse {
         UserResponse {
             id: Uuid::parse_str(&user.id).unwrap(),
             username: user.username.to_string(),
+            role: user.role.to_string(),
         }
     }
 }
@@ -167,10 +192,19 @@ pub mod tests {
         let params = Json(CreateUserRequest {
             username: "satoshi@nakamotoinstitute.org".into(),
             password: "123456".into(),
+            role: "admin".into(),
         });
-        let response = create_user(get_data_pool(), Json(params.clone()))
-            .await
-            .unwrap();
+        let response = create_user(
+            get_data_pool(),
+            Json(params.clone()),
+            AuthUser {
+                id: "0000".to_string(),
+                username: "test".to_string(),
+                role: "admin".to_string(),
+            },
+        )
+        .await
+        .unwrap();
         assert_eq!(response.into_inner().username, params.username);
     }
 
@@ -180,6 +214,7 @@ pub mod tests {
         let user_id: Path<Uuid> = get_first_users_id().into();
         let params = Json(UpdateUserRequest {
             username: first_user.username.clone(),
+            role: first_user.role.clone(),
         });
         let response = update_user(user_id, get_data_pool(), Json(params.clone()))
             .await

@@ -4,7 +4,7 @@
 use crate::handlers::{
     auth::{login, logout},
     health::get_health,
-    user::{create_user, delete_user, get_user, get_users, update_user},
+    user::{create_user, delete_user, get_login_user_info, get_user, get_users, update_user},
 };
 use crate::middleware::auth::Auth as AuthMiddleware;
 use actix_files::Files;
@@ -28,6 +28,7 @@ pub fn routes(cfg: &mut web::ServiceConfig) {
                 // USER routes
                 .service(
                     web::scope("/user")
+                        .route("/info", web::get().to(get_login_user_info))
                         .route("/{id}", web::get().to(get_user))
                         .route("/{id}", web::put().to(update_user))
                         .route("/{id}", web::delete().to(delete_user))

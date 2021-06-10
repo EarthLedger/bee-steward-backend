@@ -24,6 +24,7 @@ mod tests {
         let params = CreateUserRequest {
             username: "satoshi@nakamotoinstitute.org".into(),
             password: "123456".into(),
+            role: "admin".into(),
         };
         assert_post(PATH, params).await;
     }
