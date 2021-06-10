@@ -9,15 +9,15 @@ use uuid::Uuid;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct PrivateClaim {
     pub user_id: Uuid,
-    pub email: String,
+    pub username: String,
     exp: i64,
 }
 
 impl PrivateClaim {
-    pub fn new(user_id: Uuid, email: String) -> Self {
+    pub fn new(user_id: Uuid, username: String) -> Self {
         Self {
             user_id,
-            email,
+            username,
             exp: (Utc::now() + Duration::hours(CONFIG.jwt_expiration)).timestamp(),
         }
     }

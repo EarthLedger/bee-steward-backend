@@ -12,8 +12,7 @@ use validator::Validate;
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub struct UserResponse {
     pub id: Uuid,
-    pub name: String,
-    pub email: String,
+    pub username: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
@@ -25,10 +24,7 @@ pub struct CreateUserRequest {
         min = 3,
         message = "name is required and must be at least 3 characters"
     ))]
-    pub name: String,
-
-    #[validate(email(message = "email must be a valid email"))]
-    pub email: String,
+    pub username: String,
 
     #[validate(length(
         min = 6,
@@ -43,10 +39,7 @@ pub struct UpdateUserRequest {
         min = 3,
         message = "name is required and must be at least 3 characters"
     ))]
-    pub name: String,
-
-    #[validate(email(message = "email must be a valid email"))]
-    pub email: String,
+    pub username: String,
 }
 
 /// Get a user
@@ -76,8 +69,7 @@ pub async fn create_user(
     let user_id = Uuid::new_v4();
     let new_user: User = NewUser {
         id: user_id.to_string(),
-        name: params.name.to_string(),
-        email: params.email.to_string(),
+        username: params.username.to_string(),
         password: params.password.to_string(),
         created_by: user_id.to_string(),
         updated_by: user_id.to_string(),
@@ -99,8 +91,7 @@ pub async fn update_user(
     // update when auth is added
     let update_user = UpdateUser {
         id: user_id.to_string(),
-        name: params.name.to_string(),
-        email: params.email.to_string(),
+        username: params.username.to_string(),
         updated_by: user_id.to_string(),
     };
     let user = block(move || update(&pool, &update_user)).await?;
@@ -120,8 +111,7 @@ impl From<User> for UserResponse {
     fn from(user: User) -> Self {
         UserResponse {
             id: Uuid::parse_str(&user.id).unwrap(),
-            name: user.name.to_string(),
-            email: user.email.to_string(),
+            username: user.username.to_string(),
         }
     }
 }
@@ -175,14 +165,13 @@ pub mod tests {
     #[actix_rt::test]
     async fn it_creates_a_user() {
         let params = Json(CreateUserRequest {
-            name: "Satoshi".into(),
-            email: "satoshi@nakamotoinstitute.org".into(),
+            username: "satoshi@nakamotoinstitute.org".into(),
             password: "123456".into(),
         });
         let response = create_user(get_data_pool(), Json(params.clone()))
             .await
             .unwrap();
-        assert_eq!(response.into_inner().name, params.name);
+        assert_eq!(response.into_inner().username, params.username);
     }
 
     #[actix_rt::test]
@@ -190,13 +179,12 @@ pub mod tests {
         let first_user = &get_all_users().0[0];
         let user_id: Path<Uuid> = get_first_users_id().into();
         let params = Json(UpdateUserRequest {
-            name: first_user.name.clone(),
-            email: first_user.email.clone(),
+            username: first_user.username.clone(),
         });
         let response = update_user(user_id, get_data_pool(), Json(params.clone()))
             .await
             .unwrap();
-        assert_eq!(response.into_inner().name, params.name);
+        assert_eq!(response.into_inner().username, params.username);
     }
 
     #[actix_rt::test]

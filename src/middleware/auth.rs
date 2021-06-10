@@ -6,7 +6,10 @@ use actix_web::{
     dev::{ServiceRequest, ServiceResponse},
     Error, HttpResponse,
 };
-use futures::{Future, future::{ok, Ready}};
+use futures::{
+    future::{ok, Ready},
+    Future,
+};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -42,20 +45,32 @@ where
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 
-    fn poll_ready(&mut self, cx: &mut Context) -> Poll<Result<(), Self::Error>> {        
+    fn poll_ready(&mut self, cx: &mut Context) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
     }
 
     fn call(&mut self, req: ServiceRequest) -> Self::Future {
-        let identity = RequestIdentity::get_identity(&req).unwrap_or("".into());
+        //let identity = RequestIdentity::get_identity(&req).unwrap_or("".into());
+        let extract_token = || -> &str {
+            match req.headers().get("token") {
+                Some(value) => value.to_str().unwrap_or("".into()),
+                None => "".into(),
+            }
+        };
+
+        let identity = match RequestIdentity::get_identity(&req) {
+            Some(cookie_auth) => cookie_auth,
+            None => extract_token().to_string(),
+        };
+
         let private_claim: Result<PrivateClaim, ApiError> = decode_jwt(&identity);
         let is_logged_in = private_claim.is_ok();
         let unauthorized = !is_logged_in && req.path() != "/api/v1/auth/login";
 
         if unauthorized {
-            return Box::pin(async move {    
+            return Box::pin(async move {
                 Ok(req.into_response(HttpResponse::Unauthorized().finish().into_body()))
-            })
+            });
         }
 
         let fut = self.service.call(req);

@@ -10,8 +10,7 @@ use uuid::Uuid;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Queryable, Identifiable, Insertable)]
 pub struct User {
     pub id: String,
-    pub name: String,
-    pub email: String,
+    pub username: String,
     pub password: String,
     pub created_by: String,
     pub created_at: NaiveDateTime,
@@ -22,8 +21,7 @@ pub struct User {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NewUser {
     pub id: String,
-    pub name: String,
-    pub email: String,
+    pub username: String,
     pub password: String,
     pub created_by: String,
     pub updated_by: String,
@@ -33,15 +31,14 @@ pub struct NewUser {
 #[table_name = "users"]
 pub struct UpdateUser {
     pub id: String,
-    pub name: String,
-    pub email: String,
+    pub username: String,
     pub updated_by: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthUser {
     pub id: String,
-    pub email: String,
+    pub username: String,
 }
 
 /// Get all users
@@ -72,14 +69,14 @@ pub fn find(pool: &PoolType, user_id: Uuid) -> Result<UserResponse, ApiError> {
 /// Return an Unauthorized error if it doesn't match
 pub fn find_by_auth(
     pool: &PoolType,
-    user_email: &str,
+    user_username: &str,
     user_password: &str,
 ) -> Result<UserResponse, ApiError> {
-    use crate::schema::users::dsl::{email, password, users};
+    use crate::schema::users::dsl::{password, username, users};
 
     let conn = pool.get()?;
     let user = users
-        .filter(email.eq(user_email.to_string()))
+        .filter(username.eq(user_username.to_string()))
         .filter(password.eq(user_password.to_string()))
         .first::<User>(&conn)
         .map_err(|e| {
@@ -125,8 +122,7 @@ impl From<NewUser> for User {
     fn from(user: NewUser) -> Self {
         User {
             id: user.id,
-            name: user.name,
-            email: user.email,
+            username: user.username,
             password: hash(&user.password),
             created_by: user.created_by,
             created_at: Utc::now().naive_utc(),
@@ -150,8 +146,7 @@ pub mod tests {
         let user_id = Uuid::new_v4();
         let new_user = NewUser {
             id: user_id.to_string(),
-            name: "Model".to_string(),
-            email: "model-test@nothing.org".to_string(),
+            username: "Model".to_string(),
             password: "123456".to_string(),
             created_by: user_id.to_string(),
             updated_by: user_id.to_string(),
@@ -196,8 +191,7 @@ pub mod tests {
         let user = &users.0[1];
         let update_user = UpdateUser {
             id: user.id.to_string(),
-            name: "ModelUpdate".to_string(),
-            email: "model-update-test@nothing.org".to_string(),
+            username: "ModelUpdate".to_string(),
             updated_by: user.id.to_string(),
         };
         let updated = update(&get_pool(), &update_user);
@@ -211,8 +205,7 @@ pub mod tests {
         let user_id = Uuid::new_v4();
         let update_user = UpdateUser {
             id: user_id.to_string(),
-            name: "ModelUpdateFailure".to_string(),
-            email: "model-update-failure-test@nothing.org".to_string(),
+            username: "ModelUpdateFailure".to_string(),
             updated_by: user_id.to_string(),
         };
         let updated = update(&get_pool(), &update_user);

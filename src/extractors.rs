@@ -4,10 +4,9 @@ use actix_identity::RequestIdentity;
 use actix_web::{
     dev::Payload,
     web::{HttpRequest, HttpResponse},
-    Error,
-    FromRequest,
+    Error, FromRequest,
 };
-use futures::future::{ok, err, Ready};
+use futures::future::{err, ok, Ready};
 
 /// Extractor for pulling the identity out of a request.
 ///
@@ -23,7 +22,7 @@ impl FromRequest for AuthUser {
             let private_claim: PrivateClaim = decode_jwt(&identity).unwrap();
             return ok(AuthUser {
                 id: private_claim.user_id.to_string(),
-                email: private_claim.email,
+                username: private_claim.username,
             });
         }
         err(HttpResponse::Unauthorized().into())

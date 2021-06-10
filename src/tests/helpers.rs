@@ -15,7 +15,7 @@ pub mod tests {
     /// Helper for HTTP GET integration tests
     pub async fn test_get(route: &str) -> ServiceResponse {
         let login_request = LoginRequest {
-            email: "satoshi@nakamotoinstitute.org".into(),
+            username: "satoshi@nakamotoinstitute.org".into(),
             password: "123456".into(),
         };
 
@@ -112,7 +112,7 @@ pub mod tests {
     /// Login to routes  
     pub async fn login() -> ServiceResponse {
         let login_request = LoginRequest {
-            email: "satoshi@nakamotoinstitute.org".into(),
+            username: "satoshi@nakamotoinstitute.org".into(),
             password: "123456".into(),
         };
         let mut app = test::init_service(
