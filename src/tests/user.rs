@@ -22,7 +22,7 @@ mod tests {
     #[actix_rt::test]
     async fn it_creates_a_user() {
         let params = CreateUserRequest {
-            username: "satoshi@nakamotoinstitute.org".into(),
+            username: Uuid::new_v4().to_string(),
             password: "123456".into(),
             role: "admin".into(),
         };

@@ -2,21 +2,23 @@ use crate::database::PoolType;
 use crate::errors::ApiError;
 use crate::helpers::{respond_json, respond_ok};
 use crate::models::user::{
-    create, delete, find, get_all, update, AuthUser, NewUser, UpdateUser, User,
+    create, delete, find, get_all, update, AuthUser, NewUser, Role, UpdateUser, User,
 };
 use crate::response::Response;
 use crate::validate::validate;
 use actix_web::web::{block, Data, HttpResponse, Json, Path};
 use rayon::prelude::*;
 use serde::Serialize;
+use std::str::FromStr;
 use uuid::Uuid;
-use validator::Validate;
+use validator::ValidationError;
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub struct UserResponse {
     pub id: Uuid,
     pub username: String,
     pub role: String,
+    pub created_by: Uuid,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
@@ -35,7 +37,17 @@ pub struct CreateUserRequest {
         message = "password is required and must be at least 6 characters"
     ))]
     pub password: String,
+
+    #[validate(length(min = 1), custom = "validate_user_role")]
     pub role: String,
+}
+
+fn validate_user_role(role: &str) -> Result<(), ValidationError> {
+    if !Role::is_valid(role) {
+        return Err(ValidationError::new("not valid user role"));
+    }
+
+    Ok(())
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]
@@ -53,7 +65,7 @@ pub async fn get_user(
     user_id: Path<Uuid>,
     pool: Data<PoolType>,
 ) -> Result<Json<UserResponse>, ApiError> {
-    let user = block(move || find(&pool, *user_id)).await?;
+    let user = block(move || find(&pool, &user_id)).await?;
     respond_json(user)
 }
 
@@ -62,7 +74,7 @@ pub async fn get_login_user_info(
     auth_user: AuthUser,
     pool: Data<PoolType>,
 ) -> Result<Json<Response<UserResponse>>, ApiError> {
-    let user = block(move || find(&pool, Uuid::parse_str(&auth_user.id).unwrap())).await?;
+    let user = block(move || find(&pool, &Uuid::parse_str(&auth_user.id).unwrap())).await?;
     respond_json(Response {
         code: 200,
         msg: "success".to_string(),
@@ -80,13 +92,23 @@ pub async fn get_users(pool: Data<PoolType>) -> Result<Json<UsersResponse>, ApiE
 pub async fn create_user(
     pool: Data<PoolType>,
     params: Json<CreateUserRequest>,
-    user: AuthUser,
-) -> Result<Json<UserResponse>, ApiError> {
+    auth_user: AuthUser,
+) -> Result<Json<Response<UserResponse>>, ApiError> {
     validate(&params)?;
 
-    info!("login user: {:?}", user);
+    info!("login user: {:?}", auth_user);
+    // user role verification
+    let new_user_role = Role::from_str(&params.role).unwrap();
+    if !Role::from_str(&auth_user.role)
+        .unwrap()
+        .is_op_permit(&new_user_role)
+    {
+        warn!("operation not permitted for role: {:?}", new_user_role);
+        return Err(ApiError::ValidationError(vec![
+            "role not permit".to_string()
+        ]));
+    }
 
-    // temporarily use the new user's id for created_at/updated_at
     // update when auth is added
     let user_id = Uuid::new_v4();
     let new_user: User = NewUser {
@@ -99,7 +121,11 @@ pub async fn create_user(
     }
     .into();
     let user = block(move || create(&pool, &new_user)).await?;
-    respond_json(user.into())
+    respond_json(Response {
+        code: 200,
+        msg: "success".to_string(),
+        data: user,
+    })
 }
 
 /// Update a user
@@ -107,8 +133,25 @@ pub async fn update_user(
     user_id: Path<Uuid>,
     pool: Data<PoolType>,
     params: Json<UpdateUserRequest>,
-) -> Result<Json<UserResponse>, ApiError> {
+    auth_user: AuthUser,
+) -> Result<Json<Response<UserResponse>>, ApiError> {
     validate(&params)?;
+
+    // admin user can operate all
+    if !Role::is_admin(&auth_user.role) {
+        // not admin, only creator can operate
+        // load update user
+        let user = find(&pool, &user_id)?;
+        if user.created_by != Uuid::parse_str(&auth_user.id).unwrap() {
+            warn!(
+                "update user, but not admin and not creator: {:?}",
+                auth_user.id
+            );
+            return Err(ApiError::ValidationError(vec![
+                "role not permit".to_string()
+            ]));
+        }
+    }
 
     // temporarily use the user's id for updated_at
     // update when auth is added
@@ -119,7 +162,11 @@ pub async fn update_user(
         updated_by: user_id.to_string(),
     };
     let user = block(move || update(&pool, &update_user)).await?;
-    respond_json(user.into())
+    respond_json(Response {
+        code: 200,
+        msg: "success".to_string(),
+        data: user,
+    })
 }
 
 /// Delete a user
@@ -137,6 +184,7 @@ impl From<User> for UserResponse {
             id: Uuid::parse_str(&user.id).unwrap(),
             username: user.username.to_string(),
             role: user.role.to_string(),
+            created_by: Uuid::parse_str(&user.created_by).unwrap(),
         }
     }
 }
@@ -152,6 +200,7 @@ pub mod tests {
     use super::*;
     use crate::models::user::tests::create_user as model_create_user;
     use crate::tests::helpers::tests::{get_data_pool, get_pool};
+    use chrono::Utc;
 
     pub fn get_all_users() -> UsersResponse {
         let pool = get_pool();
@@ -189,8 +238,9 @@ pub mod tests {
 
     #[actix_rt::test]
     async fn it_creates_a_user() {
+        let now = Utc::now();
         let params = Json(CreateUserRequest {
-            username: "satoshi@nakamotoinstitute.org".into(),
+            username: format!("{}", now).into(),
             password: "123456".into(),
             role: "admin".into(),
         });
@@ -205,7 +255,7 @@ pub mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(response.into_inner().username, params.username);
+        assert_eq!(response.into_inner().data.username, params.username);
     }
 
     #[actix_rt::test]
@@ -216,10 +266,19 @@ pub mod tests {
             username: first_user.username.clone(),
             role: first_user.role.clone(),
         });
-        let response = update_user(user_id, get_data_pool(), Json(params.clone()))
-            .await
-            .unwrap();
-        assert_eq!(response.into_inner().username, params.username);
+        let response = update_user(
+            user_id,
+            get_data_pool(),
+            Json(params.clone()),
+            AuthUser {
+                id: "0000".to_string(),
+                username: "test".to_string(),
+                role: "admin".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(response.into_inner().data.username, params.username);
     }
 
     #[actix_rt::test]
@@ -227,10 +286,10 @@ pub mod tests {
         let created = model_create_user();
         let user_id = created.unwrap().id;
         let user_id_path: Path<Uuid> = user_id.into();
-        let user = find(&get_pool(), user_id);
+        let user = find(&get_pool(), &user_id);
         assert!(user.is_ok());
         delete_user(user_id_path, get_data_pool()).await.unwrap();
-        let user = find(&get_pool(), user_id);
+        let user = find(&get_pool(), &user_id);
         assert!(user.is_err());
     }
 }
