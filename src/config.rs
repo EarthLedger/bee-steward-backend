@@ -27,6 +27,7 @@ pub struct Config {
     pub session_name: String,
     pub session_secure: bool,
     pub session_timeout: i64,
+    pub nodes_status_path: String,
 }
 
 // Throw the Config struct into a CONFIG lazy_static to avoid multiple processing
