@@ -1,0 +1,11 @@
+CREATE TABLE nodes (
+  addr VARCHAR(64) NOT NULL PRIMARY KEY,
+  server_id VARCHAR(36) NOT NULL,
+	server_idx INT NOT NULL,
+	customer VARCHAR(36),
+	sub VARCHAR(36),
+	created_by VARCHAR(36) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_by VARCHAR(36) NOT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);

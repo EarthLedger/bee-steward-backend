@@ -1,108 +1,214 @@
-use crate::config::CONFIG;
+use crate::database::PoolType;
 use crate::errors::ApiError;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fs::File;
+use crate::handlers::node::{NodeResponse, NodesResponse};
+use crate::schema::nodes;
+use crate::schema::servers;
+use chrono::{NaiveDateTime, Utc};
+use diesel::prelude::*;
+use uuid::Uuid;
 
-/// We have two kinds of clusters:
-/// 1. based on computers
-/// 2. based on customers (remap)
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Cheque {
-    beneficiary: String,
-    chequebook: String,
-    payout: u128,
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Queryable, Identifiable, Insertable)]
+#[primary_key(addr)]
+pub struct Node {
+    pub addr: String,
+    pub server_id: String,
+    pub server_idx: i32,
+    pub customer: Option<String>,
+    pub sub: Option<String>,
+    pub created_by: String,
+    pub created_at: NaiveDateTime,
+    pub updated_by: String,
+    pub updated_at: NaiveDateTime,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct PeerInfo {
-    peer: String,
-    lastreceived: Option<Cheque>,
-    lastsent: Option<Cheque>,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NewNode {
+    pub addr: String,
+    pub server_id: String,
+    pub server_idx: i32,
+    pub customer: Option<String>,
+    pub sub: Option<String>,
+    pub created_by: String,
+    pub updated_by: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct NodeInfo {
-    id: String,
-    cheques: Vec<PeerInfo>,
-    peers: u32,
-    address: String,
+#[derive(Clone, Debug, Serialize, Deserialize, AsChangeset)]
+#[table_name = "nodes"]
+pub struct UpdateNode {
+    pub addr: String,
+    pub server_id: String,
+    pub server_idx: i32,
+    pub customer: Option<String>,
+    pub sub: Option<String>,
+    pub updated_by: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ClusterStatus {
-    time: String,
-    node_count: u32,
-    cheque_count: u32,
-    updates: Vec<NodeInfo>,
+pub fn get_all(pool: &PoolType) -> Result<Vec<Node>, ApiError> {
+    use crate::schema::nodes::dsl::nodes;
+
+    let conn = pool.get()?;
+    let all_nodes = nodes.load(&conn)?;
+
+    Ok(all_nodes)
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct CustomerClusterInfo {
-    name: String,
-    server_id: String,
-    node_start: u32,
-    node_end: u32,
+pub fn get_by_addr(pool: &PoolType, node_addr: &str) -> Result<Node, ApiError> {
+    use crate::schema::nodes::dsl::{addr, nodes};
+
+    let not_found = format!("Node {} not found", node_addr);
+    let conn = pool.get()?;
+    let node = nodes
+        .filter(addr.eq(node_addr.to_string()))
+        .first::<Node>(&conn)
+        .map_err(|_| ApiError::NotFound(not_found))?;
+
+    Ok(node)
 }
 
-type ClusterConfig = HashMap<String, CustomerClusterInfo>;
+pub fn get_by_customer(pool: &PoolType, customer_id: &str) -> Result<Vec<Node>, ApiError> {
+    use crate::schema::nodes::dsl::{customer, nodes};
 
-// TODO: change to use db
-pub fn get_cluster_config() -> ClusterConfig {
-    let file =
-        File::open(&CONFIG.cluster_config_file).expect("cluster config should open correctly");
-    serde_json::from_reader(file).expect("Cluster config JSON file parse fail")
+    let conn = pool.get()?;
+    let filter_nodes = nodes
+        .filter(customer.eq(customer_id.to_string()))
+        .load::<Node>(&conn)
+        .map_err(|e| {
+            println!("?{}", e);
+            ApiError::PoolError(e.to_string())
+        })?;
+    Ok(filter_nodes)
 }
 
-pub fn load_by_customer_cluster(customer_id: &str) -> Result<ClusterStatus, ApiError> {
-    let cluster_config = get_cluster_config();
-    let customer = cluster_config
-        .get(customer_id)
-        .ok_or(ApiError::NotFound("not found customer config".to_string()))?;
-    let cluster_path = format!("{}/{}.json", CONFIG.nodes_status_path, customer.server_id);
-    let nodes_status_file = File::open(&cluster_path)
-        .map_err(|_e| ApiError::NotFound("not found customer nodes".to_string()))?;
-    let nodes_status: ClusterStatus = serde_json::from_reader(nodes_status_file)
-        .map_err(|e| ApiError::ParseError(e.to_string()))?;
+pub fn get_by_sub(pool: &PoolType, sub_id: &str) -> Result<Vec<Node>, ApiError> {
+    use crate::schema::nodes::dsl::{nodes, sub};
 
-    let mut result = ClusterStatus {
-        time: nodes_status.time.clone(),
-        node_count: 0,
-        cheque_count: 0,
-        updates: vec![],
-    };
+    let conn = pool.get()?;
+    let filter_nodes = nodes
+        .filter(sub.eq(sub_id.to_string()))
+        .load::<Node>(&conn)
+        .map_err(|e| {
+            println!("?{}", e);
+            ApiError::PoolError(e.to_string())
+        })?;
+    Ok(filter_nodes)
+}
 
-    // go through nodes filter out belongs to customer
-    for update in &nodes_status.updates {
-        let id: u32 = update.id.parse().unwrap();
-        if id >= customer.node_start && id <= customer.node_end {
-            result.node_count += 1;
-            result.updates.push(update.clone());
+pub fn create_node(pool: &PoolType, new_node: &Node) -> Result<Node, ApiError> {
+    use crate::schema::nodes::dsl::nodes;
+
+    let conn = pool.get()?;
+    diesel::insert_into(nodes).values(new_node).execute(&conn)?;
+    Ok(new_node.clone().into())
+}
+
+pub fn update_node(pool: &PoolType, update_node: &UpdateNode) -> Result<Node, ApiError> {
+    use crate::schema::nodes::dsl::{addr, nodes};
+
+    let conn = pool.get()?;
+    diesel::update(nodes)
+        .filter(addr.eq(update_node.addr.clone()))
+        .set(update_node)
+        .execute(&conn)?;
+
+    get_by_addr(&pool, &update_node.addr)
+}
+
+impl From<NewNode> for Node {
+    fn from(node: NewNode) -> Self {
+        Node {
+            addr: node.addr,
+            server_id: node.server_id,
+            server_idx: node.server_idx,
+            customer: node.customer,
+            sub: node.sub,
+            created_by: node.created_by,
+            created_at: Utc::now().naive_utc(),
+            updated_by: node.updated_by,
+            updated_at: Utc::now().naive_utc(),
         }
     }
-
-    Ok(result)
 }
 
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use crate::tests::helpers::tests::get_pool;
+    use chrono::Utc;
 
-    #[test]
-    fn load_cluster_config() {
-        let config = get_cluster_config();
-        for (customer_id, cluster_info) in &config {
-            println!("{}: \"{:?}\"", customer_id, cluster_info);
-        }
+    pub fn get_all_nodes() -> Result<Vec<Node>, ApiError> {
+        let pool = get_pool();
+        get_all(&pool)
+    }
+
+    pub fn create_new_test_node() -> Result<Node, ApiError> {
+        let pool = get_pool();
+        let new_node = NewNode {
+            addr: format!("{}", Utc::now()).into(),
+            server_id: "abc".to_string(),
+            server_idx: 0,
+            customer: Some("xxxxxx-xxxxxx-0001".to_string()),
+            sub: Some("sub".to_string()),
+            created_by: "aaaaaa".to_string(),
+            updated_by: "aaaaaa".to_string(),
+        };
+
+        create_node(&pool, &new_node.into())
     }
 
     #[test]
-    fn load_customer_cluster() {
-        let result = load_by_customer_cluster("635362904".into());
-        println!(
-            "load result: {:?}",
-            serde_json::to_string(&result.unwrap()).unwrap()
-        );
+    fn it_create_node() {
+        let result = create_new_test_node();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn it_gets_nodes() {
+        let nodes = get_all_nodes();
+        println!("nodes: {:?}", nodes);
+        assert!(nodes.is_ok());
+    }
+
+    #[test]
+    fn it_gets_by_customer() {
+        let pool = get_pool();
+        let nodes = get_by_customer(&pool, "xxxxxx-xxxxxx-0001".into());
+        println!("nodes: {:?}", nodes);
+        assert!(nodes.is_ok());
+    }
+
+    #[test]
+    fn it_gets_by_sub() {
+        let pool = get_pool();
+        let nodes = get_by_sub(&pool, "sub".into());
+        println!("nodes: {:?}", nodes);
+        assert!(nodes.is_ok());
+    }
+
+    #[test]
+    fn it_gets_by_addr() {
+        let pool = get_pool();
+
+        let node = create_new_test_node().unwrap();
+
+        let find_result = get_by_addr(&pool, &node.addr).unwrap();
+        assert_eq!(find_result.addr, node.addr);
+    }
+
+    #[test]
+    fn it_update_node() {
+        // create a new node
+        let node = create_new_test_node().unwrap();
+
+        let updated_node = UpdateNode {
+            addr: node.addr,
+            server_id: node.server_id,
+            server_idx: node.server_idx,
+            customer: node.customer,
+            sub: Some("newsub".to_string()),
+            updated_by: node.updated_by,
+        };
+
+        let result = update_node(&get_pool(), &updated_node).unwrap();
+        assert_eq!(result.sub, Some("newsub".to_string()));
     }
 }
