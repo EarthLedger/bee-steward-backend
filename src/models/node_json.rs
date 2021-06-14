@@ -2,27 +2,30 @@ use crate::config::CONFIG;
 use crate::errors::ApiError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{read_dir, File};
+use std::io::Error;
+use std::sync::Mutex;
+use walkdir::WalkDir;
 
 /// We have two kinds of clusters:
 /// 1. based on computers
 /// 2. based on customers (remap)
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Cheque {
     beneficiary: String,
     chequebook: String,
     payout: u128,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct PeerInfo {
     peer: String,
     lastreceived: Option<Cheque>,
     lastsent: Option<Cheque>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct NodeInfo {
     id: String,
     cheques: Vec<PeerInfo>,
@@ -47,6 +50,15 @@ pub struct CustomerClusterInfo {
 }
 
 type ClusterConfig = HashMap<String, CustomerClusterInfo>;
+
+// Global node status hash map
+lazy_static! {
+    #[derive(Debug)]
+    static ref g_node_map: Mutex<HashMap<String, NodeInfo>> = {
+        let mut map = HashMap::new();
+        Mutex::new(map)
+    };
+}
 
 // TODO: change to use db
 pub fn get_cluster_config() -> ClusterConfig {
@@ -83,6 +95,62 @@ pub fn load_by_customer_cluster(customer_id: &str) -> Result<ClusterStatus, ApiE
     }
 
     Ok(result)
+}
+
+pub fn load_by_server_cluster(server_id: &str) -> Result<ClusterStatus, ApiError> {
+    let cluster_path = format!(
+        "{}/{}.json",
+        CONFIG.nodes_status_path,
+        server_id.to_string()
+    );
+    let nodes_status_file = File::open(&cluster_path)
+        .map_err(|_e| ApiError::NotFound("not found customer nodes".to_string()))?;
+    let nodes_status: ClusterStatus = serde_json::from_reader(nodes_status_file)
+        .map_err(|e| ApiError::ParseError(e.to_string()))?;
+
+    Ok(nodes_status)
+}
+
+pub fn get_node_info(addr: &str) -> Result<NodeInfo, ApiError> {
+    match g_node_map.lock().unwrap().get(addr) {
+        Some(info) => Ok(info.clone()),
+        None => Err(ApiError::NotFound("not found node status".to_string())),
+    }
+}
+
+// Timer task auto load node status json and build up node addr hash map
+pub fn update_node_status() -> Result<(), ApiError> {
+    println!("update node status");
+    {
+        println!("node status: {:?}", g_node_map.lock().unwrap());
+    }
+
+    // go through dir
+    for entry in WalkDir::new(CONFIG.nodes_status_path.clone())
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let f_name = entry.file_name().to_string_lossy();
+        println!("file name:{}", f_name);
+        if f_name.ends_with(".json") {
+            let nodes_status_file =
+                File::open(format!("{}{}", CONFIG.nodes_status_path, f_name))
+                    .map_err(|_e| ApiError::NotFound("not found customer nodes".to_string()))?;
+            match serde_json::from_reader::<_, ClusterStatus>(nodes_status_file) {
+                Ok(nodes_status) => {
+                    //println!("status: {:?}", nodes_status);
+                    // go through json to update node status
+                    let mut map = g_node_map.lock().unwrap();
+                    for node in nodes_status.updates {
+                        map.insert(node.address.clone(), node);
+                    }
+                }
+                Err(e) => println!("error: {:?}", e),
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

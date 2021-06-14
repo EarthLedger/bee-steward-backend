@@ -1,6 +1,7 @@
 use crate::database::PoolType;
 use crate::errors::ApiError;
-use crate::handlers::node::{NodeResponse, NodesResponse};
+use crate::handlers::node::{NodeResponse, NodeResponses};
+use crate::models::node_json::{get_node_info, NodeInfo};
 use crate::schema::nodes;
 use crate::schema::servers;
 use chrono::{NaiveDateTime, Utc};
@@ -65,7 +66,7 @@ pub fn get_by_addr(pool: &PoolType, node_addr: &str) -> Result<Node, ApiError> {
     Ok(node)
 }
 
-pub fn get_by_customer(pool: &PoolType, customer_id: &str) -> Result<Vec<Node>, ApiError> {
+pub fn get_by_customer(pool: &PoolType, customer_id: &str) -> Result<NodeResponses, ApiError> {
     use crate::schema::nodes::dsl::{customer, nodes};
 
     let conn = pool.get()?;
@@ -76,10 +77,19 @@ pub fn get_by_customer(pool: &PoolType, customer_id: &str) -> Result<Vec<Node>, 
             println!("?{}", e);
             ApiError::PoolError(e.to_string())
         })?;
-    Ok(filter_nodes)
+    // append node status from json store
+    let mut res: NodeResponses = vec![];
+    for node in filter_nodes {
+        res.push(NodeResponse {
+            info: get_node_info(&node.addr)?,
+            node,
+        })
+    }
+
+    Ok(res)
 }
 
-pub fn get_by_sub(pool: &PoolType, sub_id: &str) -> Result<Vec<Node>, ApiError> {
+pub fn get_by_sub(pool: &PoolType, sub_id: &str) -> Result<NodeResponses, ApiError> {
     use crate::schema::nodes::dsl::{nodes, sub};
 
     let conn = pool.get()?;
@@ -90,7 +100,15 @@ pub fn get_by_sub(pool: &PoolType, sub_id: &str) -> Result<Vec<Node>, ApiError> 
             println!("?{}", e);
             ApiError::PoolError(e.to_string())
         })?;
-    Ok(filter_nodes)
+    let mut res: NodeResponses = vec![];
+    for node in filter_nodes {
+        res.push(NodeResponse {
+            info: get_node_info(&node.addr)?,
+            node,
+        })
+    }
+
+    Ok(res)
 }
 
 pub fn create_node(pool: &PoolType, new_node: &Node) -> Result<Node, ApiError> {
