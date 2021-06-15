@@ -33,6 +33,12 @@ pub struct AssignCustomerNodesRequest {
     pub node_end: u32,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct AssignSubNodesRequest {
+    pub sub: String,
+    pub addresses: Vec<String>,
+}
+
 /// query by customer
 pub async fn query_by_customer(
     pool: Data<PoolType>,

@@ -1,7 +1,9 @@
 #![recursion_limit = "256"]
 use crate::database::PoolType;
 use crate::errors::ApiError;
-use crate::handlers::node::{AssignCustomerNodesRequest, NodeResponse, NodeResponses};
+use crate::handlers::node::{
+    AssignCustomerNodesRequest, AssignSubNodesRequest, NodeResponse, NodeResponses,
+};
 use crate::models::node_json::{get_node_info, load_by_server_cluster, NodeInfo};
 use crate::schema::nodes;
 use crate::schema::servers;
@@ -41,6 +43,13 @@ pub struct UpdateNode {
     pub server_id: String,
     pub server_idx: i32,
     pub customer: Option<String>,
+    pub sub: Option<String>,
+    pub updated_by: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, AsChangeset)]
+#[table_name = "nodes"]
+pub struct UpdateNodeSub {
     pub sub: Option<String>,
     pub updated_by: String,
 }
@@ -164,6 +173,28 @@ pub fn assign_nodes_for_customer(
     Ok(())
 }
 
+pub fn assign_nodes_for_sub(
+    pool: &PoolType,
+    params: &AssignSubNodesRequest,
+    cstm_user_id: &str,
+) -> Result<(), ApiError> {
+    use crate::schema::nodes::dsl::*;
+    let conn = pool.get()?;
+
+    let target = nodes
+        .filter(addr.eq_any(params.addresses.clone()))
+        .filter(customer.eq(cstm_user_id.to_string()));
+
+    diesel::update(target)
+        .set((
+            sub.eq(params.sub.clone()),
+            updated_at.eq(Utc::now().naive_utc()),
+        ))
+        .execute(&conn)?;
+
+    Ok(())
+}
+
 impl From<NewNode> for Node {
     fn from(node: NewNode) -> Self {
         Node {
@@ -266,7 +297,7 @@ pub mod tests {
     }
 
     #[test]
-    fn it_assign_nodes_for_customer() {
+    fn it_assign_nodes() {
         // create admin
         let admin = create_user("admin".to_string()).unwrap();
 
@@ -281,10 +312,29 @@ pub mod tests {
         assert!(assign_nodes_for_customer(&get_pool(), &params, &admin.id.to_string()).is_ok());
 
         // trigger update node status
-        update_node_status();
+        let _ = update_node_status();
 
         // query nodes for customer
         let nodes = get_by_customer(&get_pool(), &cstm.id.to_string()).unwrap();
         assert_eq!(nodes.len(), 11);
+
+        // now assign some nodes to sub
+        // create sub user
+        let sub = create_user("sub".to_string()).unwrap();
+        let assign_params = AssignSubNodesRequest {
+            sub: sub.id.to_string(),
+            addresses: vec![nodes[0].node.addr.clone(), nodes[2].node.addr.clone()],
+        };
+        let _ = assign_nodes_for_sub(&get_pool(), &assign_params, &cstm.id.to_string());
+
+        // check if update success, query target node
+        let node0 = get_by_addr(&get_pool(), &nodes[0].node.addr).unwrap();
+        let node2 = get_by_addr(&get_pool(), &nodes[2].node.addr).unwrap();
+        let node3 = get_by_addr(&get_pool(), &nodes[3].node.addr).unwrap();
+
+        assert_eq!(node0.sub, Some(sub.id.to_string()));
+        assert_eq!(node2.sub, Some(sub.id.to_string()));
+        // others not change
+        assert_eq!(node3.sub, None);
     }
 }
