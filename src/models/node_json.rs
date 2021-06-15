@@ -27,10 +27,10 @@ pub struct PeerInfo {
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct NodeInfo {
-    id: String,
-    cheques: Vec<PeerInfo>,
-    peers: u32,
-    address: String,
+    pub id: String,
+    pub cheques: Vec<PeerInfo>,
+    pub peers: u32,
+    pub address: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -38,7 +38,7 @@ pub struct ClusterStatus {
     time: String,
     node_count: u32,
     cheque_count: u32,
-    updates: Vec<NodeInfo>,
+    pub updates: Vec<NodeInfo>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -122,7 +122,7 @@ pub fn get_node_info(addr: &str) -> Result<NodeInfo, ApiError> {
 pub fn update_node_status() -> Result<(), ApiError> {
     println!("update node status");
     {
-        println!("node status: {:?}", g_node_map.lock().unwrap());
+        //println!("node status: {:?}", g_node_map.lock().unwrap());
     }
 
     // go through dir

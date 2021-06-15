@@ -194,13 +194,13 @@ pub mod tests {
         get_all(&pool)
     }
 
-    pub fn create_user() -> Result<UserResponse, ApiError> {
+    pub fn create_user(role: String) -> Result<UserResponse, ApiError> {
         let user_id = Uuid::new_v4();
         let new_user = NewUser {
             id: user_id.to_string(),
             username: user_id.to_string(),
             password: "123456".to_string(),
-            role: "admin".to_string(),
+            role,
             created_by: user_id.to_string(),
             updated_by: user_id.to_string(),
         };
@@ -231,7 +231,7 @@ pub mod tests {
 
     #[test]
     fn it_creates_a_user() {
-        let created = create_user();
+        let created = create_user("admin".to_string());
         assert!(created.is_ok());
         let unwrapped = created.unwrap();
         let found_user = find(&get_pool(), &unwrapped.id).unwrap();
@@ -269,7 +269,7 @@ pub mod tests {
 
     #[test]
     fn it_deletes_a_user() {
-        let created = create_user();
+        let created = create_user("admin".to_string());
         let user_id = created.unwrap().id;
         let user = find(&get_pool(), &user_id);
         assert!(user.is_ok());

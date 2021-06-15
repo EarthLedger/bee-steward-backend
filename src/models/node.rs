@@ -1,7 +1,8 @@
+#![recursion_limit = "256"]
 use crate::database::PoolType;
 use crate::errors::ApiError;
-use crate::handlers::node::{NodeResponse, NodeResponses};
-use crate::models::node_json::{get_node_info, NodeInfo};
+use crate::handlers::node::{AssignCustomerNodesRequest, NodeResponse, NodeResponses};
+use crate::models::node_json::{get_node_info, load_by_server_cluster, NodeInfo};
 use crate::schema::nodes;
 use crate::schema::servers;
 use chrono::{NaiveDateTime, Utc};
@@ -131,6 +132,38 @@ pub fn update_node(pool: &PoolType, update_node: &UpdateNode) -> Result<Node, Ap
     get_by_addr(&pool, &update_node.addr)
 }
 
+pub fn assign_nodes_for_customer(
+    pool: &PoolType,
+    params: &AssignCustomerNodesRequest,
+    admin_user_id: &str,
+) -> Result<(), ApiError> {
+    use crate::schema::nodes::dsl::nodes;
+    let cluster = load_by_server_cluster(&params.server_id)?;
+
+    for update in &cluster.updates {
+        let id: u32 = update.id.parse().unwrap();
+        if id >= params.node_start && id <= params.node_end {
+            println!("cluster:{:?}", update.id);
+            // create or update node
+            let node: Node = NewNode {
+                addr: update.address.clone(),
+                server_id: params.server_id.clone(),
+                server_idx: id as i32,
+                customer: Some(params.customer.clone()),
+                sub: None,
+                created_by: admin_user_id.to_string(),
+                updated_by: admin_user_id.to_string(),
+            }
+            .into();
+
+            let conn = pool.get()?;
+            diesel::replace_into(nodes).values(&node).execute(&conn)?;
+        }
+    }
+
+    Ok(())
+}
+
 impl From<NewNode> for Node {
     fn from(node: NewNode) -> Self {
         Node {
@@ -150,6 +183,8 @@ impl From<NewNode> for Node {
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use crate::models::node_json::update_node_status;
+    use crate::models::user::tests::create_user;
     use crate::tests::helpers::tests::get_pool;
     use chrono::Utc;
 
@@ -228,5 +263,28 @@ pub mod tests {
 
         let result = update_node(&get_pool(), &updated_node).unwrap();
         assert_eq!(result.sub, Some("newsub".to_string()));
+    }
+
+    #[test]
+    fn it_assign_nodes_for_customer() {
+        // create admin
+        let admin = create_user("admin".to_string()).unwrap();
+
+        // create new customer
+        let cstm = create_user("cstm".to_string()).unwrap();
+        let params = AssignCustomerNodesRequest {
+            customer: cstm.id.to_string(),
+            server_id: "0001".to_string(),
+            node_start: 110,
+            node_end: 120,
+        };
+        assert!(assign_nodes_for_customer(&get_pool(), &params, &admin.id.to_string()).is_ok());
+
+        // trigger update node status
+        update_node_status();
+
+        // query nodes for customer
+        let nodes = get_by_customer(&get_pool(), &cstm.id.to_string()).unwrap();
+        assert_eq!(nodes.len(), 11);
     }
 }

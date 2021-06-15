@@ -283,7 +283,7 @@ pub mod tests {
 
     #[actix_rt::test]
     async fn it_deletes_a_user() {
-        let created = model_create_user();
+        let created = model_create_user("admin".to_string());
         let user_id = created.unwrap().id;
         let user_id_path: Path<Uuid> = user_id.into();
         let user = find(&get_pool(), &user_id);

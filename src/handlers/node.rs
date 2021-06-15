@@ -25,6 +25,14 @@ pub struct NodeResponse {
 
 pub type NodeResponses = Vec<NodeResponse>;
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct AssignCustomerNodesRequest {
+    pub customer: String,
+    pub server_id: String,
+    pub node_start: u32,
+    pub node_end: u32,
+}
+
 /// query by customer
 pub async fn query_by_customer(
     pool: Data<PoolType>,
@@ -72,3 +80,21 @@ pub async fn query_by_sub(
         data: nodes,
     })
 }
+
+// assign nodes to customer
+/*ub async fn assign_customer_nodes(
+    pool: Data<PoolType>,
+    params: Json<AssignCustomerNodesRequest>,
+    auth_user: AuthUser,
+) -> Result<Json<Response<()>>, ApiError> {
+    // only admin can assign customer nodes
+    if !Role::is_admin(&auth_user.role) {
+        return Err(ApiError::ValidationError(vec![
+            "role not permit".to_string()
+        ]));
+    } else {
+
+    }
+
+
+}*/
