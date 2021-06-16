@@ -253,22 +253,6 @@ pub mod tests {
     }
 
     #[test]
-    fn it_gets_by_customer() {
-        let pool = get_pool();
-        let nodes = get_by_customer(&pool, "xxxxxx-xxxxxx-0001".into());
-        println!("nodes: {:?}", nodes);
-        assert!(nodes.is_ok());
-    }
-
-    #[test]
-    fn it_gets_by_sub() {
-        let pool = get_pool();
-        let nodes = get_by_sub(&pool, "sub".into());
-        println!("nodes: {:?}", nodes);
-        assert!(nodes.is_ok());
-    }
-
-    #[test]
     fn it_gets_by_addr() {
         let pool = get_pool();
 

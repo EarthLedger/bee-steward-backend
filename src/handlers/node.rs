@@ -1,7 +1,9 @@
 use crate::database::PoolType;
 use crate::errors::ApiError;
 use crate::helpers::{respond_json, respond_ok};
-use crate::models::node::{get_by_customer, get_by_sub, Node};
+use crate::models::node::{
+    assign_nodes_for_customer, assign_nodes_for_sub, get_by_customer, get_by_sub, Node,
+};
 use crate::models::node_json::NodeInfo;
 use crate::models::user::{AuthUser, Role, User};
 use crate::response::{Response, SUCCESS};
@@ -88,7 +90,7 @@ pub async fn query_by_sub(
 }
 
 // assign nodes to customer
-/*ub async fn assign_customer_nodes(
+pub async fn assign_customer_nodes(
     pool: Data<PoolType>,
     params: Json<AssignCustomerNodesRequest>,
     auth_user: AuthUser,
@@ -99,8 +101,31 @@ pub async fn query_by_sub(
             "role not permit".to_string()
         ]));
     } else {
-
+        let _ = assign_nodes_for_customer(&pool, &params, &auth_user.id)?;
+        respond_json(Response {
+            code: 200,
+            msg: SUCCESS.to_string(),
+            data: (),
+        })
     }
+}
 
-
-}*/
+pub async fn assign_sub_nodes(
+    pool: Data<PoolType>,
+    params: Json<AssignSubNodesRequest>,
+    auth_user: AuthUser,
+) -> Result<Json<Response<()>>, ApiError> {
+    // only admin can assign customer nodes
+    if !Role::is_cstm(&auth_user.role) {
+        return Err(ApiError::ValidationError(vec![
+            "role not permit".to_string()
+        ]));
+    } else {
+        let _ = assign_nodes_for_sub(&pool, &params, &auth_user.id)?;
+        respond_json(Response {
+            code: 200,
+            msg: SUCCESS.to_string(),
+            data: (),
+        })
+    }
+}

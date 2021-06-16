@@ -47,6 +47,10 @@ impl Role {
         Role::from_str(role).unwrap_or(Role::None) == Role::Admin
     }
 
+    pub fn is_cstm(role: &str) -> bool {
+        Role::from_str(role).unwrap_or(Role::None) == Role::Cstm
+    }
+
     pub fn is_valid(role: &str) -> bool {
         role == Role::Admin.to_string()
             || role == Role::Cstm.to_string()
