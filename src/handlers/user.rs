@@ -13,7 +13,7 @@ use std::str::FromStr;
 use uuid::Uuid;
 use validator::ValidationError;
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct UserResponse {
     pub id: Uuid,
     pub username: String,

@@ -3,13 +3,19 @@ use crate::database::PoolType;
 use crate::errors::ApiError;
 use crate::handlers::node::{
     AssignCustomerNodesRequest, AssignSubNodesRequest, NodeResponse, NodeResponses,
+    QueryOptionRequest, QueryPage, QuerySort,
 };
 use crate::models::node_json::{get_node_info, load_by_server_cluster, NodeInfo};
+use crate::models::user::{AuthUser, Role};
 use crate::schema::nodes;
 use crate::schema::servers;
 use chrono::{NaiveDateTime, Utc};
+use diesel::mysql::Mysql;
 use diesel::prelude::*;
+use std::str::FromStr;
 use uuid::Uuid;
+
+const DEFAULT_PAGE_SIZE: i64 = 20;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Queryable, Identifiable, Insertable)]
 #[primary_key(addr)]
@@ -54,16 +60,30 @@ pub struct UpdateNodeSub {
     pub updated_by: String,
 }
 
-pub fn get_all(pool: &PoolType) -> Result<Vec<Node>, ApiError> {
-    use crate::schema::nodes::dsl::nodes;
+/*
+fn get_order_by(field: &str) ->
+
+pub fn get_all(pool: &PoolType, page: &QueryPageRequest) -> Result<NodeResponses, ApiError> {
+    use crate::schema::nodes::dsl::*;
 
     let conn = pool.get()?;
     let all_nodes = nodes.load(&conn)?;
 
     Ok(all_nodes)
-}
+}*/
 
-pub fn get_by_addr(pool: &PoolType, node_addr: &str) -> Result<Node, ApiError> {
+/*fn sort_by_column<U: 'static>(mut query: BoxedQuery<'static, Mysql>,
+                     column: U,
+                     sort_dir: Option<String>) -> BoxedQuery<'static, Pg>
+    where U: ExpressionMethods + QueryFragment<Pg> + AppearsOnTable<flights_schema::table>{
+    match sort_dir.as_ref().map(String::as_str) {
+        Some("asc") => query.order_by(column.asc()),
+        Some("desc") => query.order_by(column.desc()),
+        _ => query
+    }
+}*/
+
+pub fn get_by_addr(pool: &PoolType, node_addr: &str) -> Result<NodeResponse, ApiError> {
     use crate::schema::nodes::dsl::{addr, nodes};
 
     let not_found = format!("Node {} not found", node_addr);
@@ -73,9 +93,142 @@ pub fn get_by_addr(pool: &PoolType, node_addr: &str) -> Result<Node, ApiError> {
         .first::<Node>(&conn)
         .map_err(|_| ApiError::NotFound(not_found))?;
 
-    Ok(node)
+    Ok(NodeResponse {
+        info: get_node_info(&node.addr)?,
+        node,
+    })
 }
 
+pub fn get_count(
+    pool: &PoolType,
+    options: &QueryOptionRequest,
+    auth_user: &AuthUser,
+) -> Result<u32, ApiError> {
+    use crate::schema::nodes::dsl::{created_by, customer, nodes, server_id, sub};
+
+    let mut query = nodes.into_boxed();
+
+    // check user role
+    let role = Role::from_str(&auth_user.role).unwrap_or(Role::None);
+    match role {
+        Role::Admin => {
+            // no customer or sub filter, can query all
+        }
+        Role::Cstm => {
+            // customer filter
+            query = query.filter(customer.eq(auth_user.id.to_string()));
+        }
+        Role::Sub => {
+            // sub filter
+            query = query.filter(sub.eq(auth_user.id.to_string()))
+        }
+        Role::None => return Err(ApiError::BadRequest("role fail".to_string())),
+    }
+
+    let conn = pool.get()?;
+    let total: i64 = query.count().get_result(&conn).unwrap();
+
+    Ok(total as u32)
+}
+
+pub fn get_by_user(
+    pool: &PoolType,
+    options: &QueryOptionRequest,
+    auth_user: &AuthUser,
+) -> Result<NodeResponses, ApiError> {
+    use crate::schema::nodes::dsl::*;
+
+    let mut query = nodes.into_boxed();
+
+    // check user role
+    let role = Role::from_str(&auth_user.role).unwrap_or(Role::None);
+    match role {
+        Role::Admin => {
+            // no customer or sub filter, can query all
+        }
+        Role::Cstm => {
+            // customer filter
+            query = query.filter(customer.eq(auth_user.id.to_string()));
+        }
+        Role::Sub => {
+            // sub filter
+            query = query.filter(sub.eq(auth_user.id.to_string()))
+        }
+        Role::None => return Err(ApiError::BadRequest("role fail".to_string())),
+    }
+
+    // check sort
+    if options.order.is_some() {
+        // list supported sort fields, this is ugly code!!!
+        let order = options.order.as_ref().unwrap();
+        match order.field.as_ref().map(String::as_str) {
+            Some("server_id") => {
+                if order.sort.unwrap_or(0) == 0 {
+                    query = query.order_by(server_id.asc());
+                } else {
+                    query = query.order_by(server_id.desc());
+                }
+            }
+            Some("customer") => {
+                if order.sort.unwrap_or(0) == 0 {
+                    query = query.order_by(customer.asc());
+                } else {
+                    query = query.order_by(customer.desc());
+                }
+            }
+            Some("sub") => {
+                if order.sort.unwrap_or(0) == 0 {
+                    query = query.order_by(sub.asc());
+                } else {
+                    query = query.order_by(sub.desc());
+                }
+            }
+            Some("server_idx") => {
+                if order.sort.unwrap_or(0) == 0 {
+                    query = query.order_by(server_idx.asc());
+                } else {
+                    query = query.order_by(server_idx.desc());
+                }
+            }
+            _ => {}
+        }
+    } else {
+        // use default
+        query = query.order_by(created_by.desc());
+    }
+
+    let conn = pool.get()?;
+    //let total: i64 = query.count().get_result(&conn).unwrap();
+    let mut result = NodeResponses {
+        nodes: vec![],
+        total: 0, //total as u32,
+        page_current: 0,
+        page_size: DEFAULT_PAGE_SIZE as u32,
+    };
+
+    // check page
+    if options.page.is_some() {
+        let page = options.page.as_ref().unwrap();
+        query = query
+            .offset((page.current * page.size) as i64)
+            .limit(page.size as i64);
+        result.page_size = page.size;
+        result.page_current = page.current;
+    } else {
+        // user default, page size 20
+        query = query.limit(DEFAULT_PAGE_SIZE);
+    }
+    let filter_nodes = query.load::<Node>(&conn)?;
+    for node in filter_nodes {
+        result.nodes.push(NodeResponse {
+            info: get_node_info(&node.addr)?,
+            node,
+        })
+    }
+
+    Ok(result)
+}
+/*
 pub fn get_by_customer(pool: &PoolType, customer_id: &str) -> Result<NodeResponses, ApiError> {
     use crate::schema::nodes::dsl::{customer, nodes};
 
@@ -120,6 +273,7 @@ pub fn get_by_sub(pool: &PoolType, sub_id: &str) -> Result<NodeResponses, ApiErr
 
     Ok(res)
 }
+*/
 
 pub fn create_node(pool: &PoolType, new_node: &Node) -> Result<Node, ApiError> {
     use crate::schema::nodes::dsl::nodes;
@@ -129,7 +283,7 @@ pub fn create_node(pool: &PoolType, new_node: &Node) -> Result<Node, ApiError> {
     Ok(new_node.clone().into())
 }
 
-pub fn update_node(pool: &PoolType, update_node: &UpdateNode) -> Result<Node, ApiError> {
+pub fn update_node(pool: &PoolType, update_node: &UpdateNode) -> Result<NodeResponse, ApiError> {
     use crate::schema::nodes::dsl::{addr, nodes};
 
     let conn = pool.get()?;
@@ -219,11 +373,6 @@ pub mod tests {
     use crate::tests::helpers::tests::get_pool;
     use chrono::Utc;
 
-    pub fn get_all_nodes() -> Result<Vec<Node>, ApiError> {
-        let pool = get_pool();
-        get_all(&pool)
-    }
-
     pub fn create_new_test_node() -> Result<Node, ApiError> {
         let pool = get_pool();
         let new_node = NewNode {
@@ -246,20 +395,13 @@ pub mod tests {
     }
 
     #[test]
-    fn it_gets_nodes() {
-        let nodes = get_all_nodes();
-        println!("nodes: {:?}", nodes);
-        assert!(nodes.is_ok());
-    }
-
-    #[test]
     fn it_gets_by_addr() {
         let pool = get_pool();
 
         let node = create_new_test_node().unwrap();
 
         let find_result = get_by_addr(&pool, &node.addr).unwrap();
-        assert_eq!(find_result.addr, node.addr);
+        assert_eq!(find_result.node.addr, node.addr);
     }
 
     #[test]
@@ -277,7 +419,7 @@ pub mod tests {
         };
 
         let result = update_node(&get_pool(), &updated_node).unwrap();
-        assert_eq!(result.sub, Some("newsub".to_string()));
+        assert_eq!(result.node.sub, Some("newsub".to_string()));
     }
 
     #[test]
@@ -299,26 +441,129 @@ pub mod tests {
         let _ = update_node_status();
 
         // query nodes for customer
-        let nodes = get_by_customer(&get_pool(), &cstm.id.to_string()).unwrap();
-        assert_eq!(nodes.len(), 11);
+        let nodes = get_by_user(
+            &get_pool(),
+            &QueryOptionRequest {
+                page: None,
+                order: None,
+            },
+            &cstm.clone().into(),
+        )
+        .unwrap();
+        assert_eq!(nodes.nodes.len(), 11);
 
         // now assign some nodes to sub
         // create sub user
         let sub = create_user("sub".to_string()).unwrap();
         let assign_params = AssignSubNodesRequest {
             sub: sub.id.to_string(),
-            addresses: vec![nodes[0].node.addr.clone(), nodes[2].node.addr.clone()],
+            addresses: vec![
+                nodes.nodes[0].node.addr.clone(),
+                nodes.nodes[2].node.addr.clone(),
+            ],
         };
         let _ = assign_nodes_for_sub(&get_pool(), &assign_params, &cstm.id.to_string());
 
         // check if update success, query target node
-        let node0 = get_by_addr(&get_pool(), &nodes[0].node.addr).unwrap();
-        let node2 = get_by_addr(&get_pool(), &nodes[2].node.addr).unwrap();
-        let node3 = get_by_addr(&get_pool(), &nodes[3].node.addr).unwrap();
+        let node0 = get_by_addr(&get_pool(), &nodes.nodes[0].node.addr).unwrap();
+        let node2 = get_by_addr(&get_pool(), &nodes.nodes[2].node.addr).unwrap();
+        let node3 = get_by_addr(&get_pool(), &nodes.nodes[3].node.addr).unwrap();
 
-        assert_eq!(node0.sub, Some(sub.id.to_string()));
-        assert_eq!(node2.sub, Some(sub.id.to_string()));
+        assert_eq!(node0.node.sub, Some(sub.id.to_string()));
+        assert_eq!(node2.node.sub, Some(sub.id.to_string()));
         // others not change
-        assert_eq!(node3.sub, None);
+        assert_eq!(node3.node.sub, None);
+    }
+
+    #[test]
+    fn it_page_sort() {
+        let admin = create_user("admin".to_string()).unwrap();
+
+        // create new customer
+        let cstm = create_user("cstm".to_string()).unwrap();
+        let params = AssignCustomerNodesRequest {
+            customer: cstm.id.to_string(),
+            server_id: "0001".to_string(),
+            node_start: 100,
+            node_end: 175,
+        };
+
+        assert!(assign_nodes_for_customer(&get_pool(), &params, &admin.id.to_string()).is_ok());
+
+        // trigger update node status
+        let _ = update_node_status();
+
+        let nodes = get_by_user(
+            &get_pool(),
+            &QueryOptionRequest {
+                page: None,
+                order: None,
+            },
+            &cstm.clone().into(),
+        )
+        .unwrap();
+        assert_eq!(nodes.nodes.len(), DEFAULT_PAGE_SIZE as usize);
+
+        let page = QueryPage {
+            current: 0,
+            size: 10,
+        };
+        let nodes = get_by_user(
+            &get_pool(),
+            &QueryOptionRequest {
+                page: Some(page),
+                order: None,
+            },
+            &cstm.clone().into(),
+        )
+        .unwrap();
+        assert_eq!(nodes.nodes.len(), 10);
+
+        // test count
+        let total = get_count(
+            &get_pool(),
+            &QueryOptionRequest {
+                page: None,
+                order: None,
+            },
+            &cstm.clone().into(),
+        )
+        .unwrap();
+        assert_eq!(total, 76);
+
+        // test page correct
+        let page = QueryPage {
+            current: 3,
+            size: 10,
+        };
+        let order = QuerySort {
+            field: Some("server_idx".to_string()),
+            sort: Some(0),
+        };
+        let nodes = get_by_user(
+            &get_pool(),
+            &QueryOptionRequest {
+                page: Some(page.clone()),
+                order: Some(order),
+            },
+            &cstm.clone().into(),
+        )
+        .unwrap();
+        assert_eq!(nodes.nodes[0].node.server_idx, 130);
+
+        let order = QuerySort {
+            field: Some("server_idx".to_string()),
+            sort: Some(1),
+        };
+        let nodes = get_by_user(
+            &get_pool(),
+            &QueryOptionRequest {
+                page: Some(page),
+                order: Some(order),
+            },
+            &cstm.clone().into(),
+        )
+        .unwrap();
+        assert_eq!(nodes.nodes[0].node.server_idx, 145);
     }
 }

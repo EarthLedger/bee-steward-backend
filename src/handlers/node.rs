@@ -1,9 +1,7 @@
 use crate::database::PoolType;
 use crate::errors::ApiError;
 use crate::helpers::{respond_json, respond_ok};
-use crate::models::node::{
-    assign_nodes_for_customer, assign_nodes_for_sub, get_by_customer, get_by_sub, Node,
-};
+use crate::models::node::{assign_nodes_for_customer, assign_nodes_for_sub, get_by_addr, Node};
 use crate::models::node_json::NodeInfo;
 use crate::models::user::{AuthUser, Role, User};
 use crate::response::{Response, SUCCESS};
@@ -25,7 +23,31 @@ pub struct NodeResponse {
     pub info: NodeInfo,
 }
 
-pub type NodeResponses = Vec<NodeResponse>;
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
+pub struct NodeResponses {
+    pub nodes: Vec<NodeResponse>,
+    pub total: u32,
+    pub page_current: u32,
+    pub page_size: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct QueryPage {
+    pub current: u32,
+    pub size: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct QuerySort {
+    pub field: Option<String>,
+    pub sort: Option<u8>, // 0: asc 1: desc
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct QueryOptionRequest {
+    pub page: Option<QueryPage>,
+    pub order: Option<QuerySort>,
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct AssignCustomerNodesRequest {
@@ -41,6 +63,45 @@ pub struct AssignSubNodesRequest {
     pub addresses: Vec<String>,
 }
 
+/// query by address
+pub async fn query_by_addr(
+    pool: Data<PoolType>,
+    node_addr: Path<String>,
+    auth_user: AuthUser,
+) -> Result<Json<Response<NodeResponse>>, ApiError> {
+    let node = block(move || get_by_addr(&pool, &node_addr)).await?;
+    respond_json(Response {
+        code: 200,
+        msg: SUCCESS.to_string(),
+        data: node,
+    })
+}
+
+/*
+/// query by user
+pub async fn query_by_user(
+    pool: Data<PoolType>,
+    params: Json<QueryOptionRequest>,
+    auth_user: AuthUser,
+) -> Result<Json<Response<NodeResponses>>, ApiError> {
+    // Admin could query any nodes
+    // Customer user can only query nodes which belongs to
+    let customer_id = if !Role::is_admin(&auth_user.role) {
+        &auth_user.id
+    } else {
+        &params.customer
+    };
+
+    let nodes = get_by_customer(&pool, customer_id)?;
+
+    respond_json(Response {
+        code: 200,
+        msg: SUCCESS.to_string(),
+        data: nodes,
+    })
+}*/
+
+/*
 /// query by customer
 pub async fn query_by_customer(
     pool: Data<PoolType>,
@@ -88,6 +149,7 @@ pub async fn query_by_sub(
         data: nodes,
     })
 }
+*/
 
 // assign nodes to customer
 pub async fn assign_customer_nodes(

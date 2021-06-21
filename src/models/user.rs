@@ -188,6 +188,16 @@ impl From<NewUser> for User {
     }
 }
 
+impl From<UserResponse> for AuthUser {
+    fn from(user: UserResponse) -> Self {
+        AuthUser {
+            id: user.id.to_string(),
+            username: user.username,
+            role: user.role,
+        }
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;

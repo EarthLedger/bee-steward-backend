@@ -4,6 +4,7 @@
 use crate::handlers::{
     auth::{login, logout},
     health::get_health,
+    node::query_by_addr,
     user::{create_user, delete_user, get_login_user_info, get_user, get_users, update_user},
 };
 use crate::middleware::auth::Auth as AuthMiddleware;
@@ -34,7 +35,13 @@ pub fn routes(cfg: &mut web::ServiceConfig) {
                         .route("/{id}", web::delete().to(delete_user))
                         .route("", web::get().to(get_users))
                         .route("", web::post().to(create_user)),
-                ),
+                ), // NODE routes
+                   /*.service(
+                       web::scope("/node")
+                           .route("/addr/{addr}", web::get().to(query_by_addr))
+                           .route("/cstm", web::post().to(query_by_customer))
+                           .route("/sub", web::post().to(query_by_customer)),
+                   ),*/
         )
         // Serve secure static files from the static-private folder
         .service(
