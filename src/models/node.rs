@@ -60,29 +60,6 @@ pub struct UpdateNodeSub {
     pub updated_by: String,
 }
 
-/*
-fn get_order_by(field: &str) ->
-
-pub fn get_all(pool: &PoolType, page: &QueryPageRequest) -> Result<NodeResponses, ApiError> {
-    use crate::schema::nodes::dsl::*;
-
-    let conn = pool.get()?;
-    let all_nodes = nodes.load(&conn)?;
-
-    Ok(all_nodes)
-}*/
-
-/*fn sort_by_column<U: 'static>(mut query: BoxedQuery<'static, Mysql>,
-                     column: U,
-                     sort_dir: Option<String>) -> BoxedQuery<'static, Pg>
-    where U: ExpressionMethods + QueryFragment<Pg> + AppearsOnTable<flights_schema::table>{
-    match sort_dir.as_ref().map(String::as_str) {
-        Some("asc") => query.order_by(column.asc()),
-        Some("desc") => query.order_by(column.desc()),
-        _ => query
-    }
-}*/
-
 pub fn get_by_addr(pool: &PoolType, node_addr: &str) -> Result<NodeResponse, ApiError> {
     use crate::schema::nodes::dsl::{addr, nodes};
 
