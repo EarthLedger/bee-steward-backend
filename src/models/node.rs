@@ -187,7 +187,7 @@ pub fn get_by_user(
     if options.page.is_some() {
         let page = options.page.as_ref().unwrap();
         query = query
-            .offset((page.current * page.size) as i64)
+            .offset(((page.current - 1) * page.size) as i64)
             .limit(page.size as i64);
         result.page_size = page.size;
         result.page_current = page.current;
