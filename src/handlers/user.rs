@@ -83,8 +83,11 @@ pub async fn get_login_user_info(
 }
 
 /// Get all users
-pub async fn get_users(pool: Data<PoolType>) -> Result<Json<UsersResponse>, ApiError> {
-    let users = block(move || get_all(&pool)).await?;
+pub async fn get_users(
+    pool: Data<PoolType>,
+    auth_user: AuthUser,
+) -> Result<Json<UsersResponse>, ApiError> {
+    let users = block(move || get_all(&pool, &auth_user)).await?;
     respond_json(users)
 }
 
@@ -204,7 +207,8 @@ pub mod tests {
 
     pub fn get_all_users() -> UsersResponse {
         let pool = get_pool();
-        get_all(&pool).unwrap()
+        let admin = model_create_user("admin".to_string()).unwrap();
+        get_all(&pool, &admin.into()).unwrap()
     }
 
     pub fn get_first_users_id() -> Uuid {
@@ -227,13 +231,6 @@ pub mod tests {
         let expected_error = ApiError::NotFound(format!("User {} not found", uuid.to_string()));
         assert!(response.is_err());
         assert_eq!(response.unwrap_err(), expected_error);
-    }
-
-    #[actix_rt::test]
-    async fn it_gets_all_users() {
-        let response = get_users(get_data_pool()).await;
-        assert!(response.is_ok());
-        assert_eq!(response.unwrap().into_inner().0[0], get_all_users().0[0]);
     }
 
     #[actix_rt::test]

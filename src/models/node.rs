@@ -113,7 +113,10 @@ pub fn get_by_user(
     options: &QueryOptionRequest,
     auth_user: &AuthUser,
 ) -> Result<NodeResponses, ApiError> {
-    use crate::schema::nodes::dsl::*;
+    use crate::schema::nodes::dsl::{created_by, customer, nodes, server_id, server_idx, sub};
+
+    //joinable!(nodes -> users (created_by));
+    //allow_tables_to_appear_in_same_query!(users, nodes);
 
     let mut query = nodes.into_boxed();
 
@@ -174,11 +177,12 @@ pub fn get_by_user(
         query = query.order_by(created_by.desc());
     }
 
+    let total = get_count(pool, options, auth_user)?;
     let conn = pool.get()?;
     //let total: i64 = query.count().get_result(&conn).unwrap();
     let mut result = NodeResponses {
         nodes: vec![],
-        total: 0, //total as u32,
+        total,
         page_current: 0,
         page_size: DEFAULT_PAGE_SIZE as u32,
     };
@@ -482,7 +486,7 @@ pub mod tests {
         assert_eq!(nodes.nodes.len(), DEFAULT_PAGE_SIZE as usize);
 
         let page = QueryPage {
-            current: 0,
+            current: 1,
             size: 10,
         };
         let nodes = get_by_user(
@@ -510,7 +514,7 @@ pub mod tests {
 
         // test page correct
         let page = QueryPage {
-            current: 3,
+            current: 4,
             size: 10,
         };
         let order = QuerySort {
@@ -542,5 +546,17 @@ pub mod tests {
         )
         .unwrap();
         assert_eq!(nodes.nodes[0].node.server_idx, 145);
+
+        let count = get_count(
+            &get_pool(),
+            &QueryOptionRequest {
+                page: None,
+                order: None,
+            },
+            &cstm.clone().into(),
+        )
+        .unwrap();
+
+        assert_eq!(count, 76);
     }
 }

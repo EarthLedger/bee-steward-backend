@@ -74,9 +74,13 @@ pub async fn login(
 
 /// Logout a user
 /// Forget their user_id
-pub async fn logout(id: Identity) -> Result<HttpResponse, ApiError> {
+pub async fn logout(id: Identity) -> Result<Json<Response<String>>, ApiError> {
     id.forget();
-    respond_ok()
+    respond_json(Response {
+        code: 200,
+        msg: "success".to_string(),
+        data: "ok".to_string(),
+    })
 }
 
 #[cfg(test)]
@@ -105,7 +109,7 @@ pub mod tests {
         login(identity, get_data_pool(), Json(params)).await
     }
 
-    async fn logout_user() -> Result<HttpResponse, ApiError> {
+    async fn logout_user() -> Result<Json<Response<String>>, ApiError> {
         let identity = get_identity().await;
         logout(identity).await
     }

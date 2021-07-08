@@ -96,12 +96,21 @@ pub struct AuthUser {
     pub role: String,
 }
 
-/// Get all users
-pub fn get_all(pool: &PoolType) -> Result<UsersResponse, ApiError> {
-    use crate::schema::users::dsl::users;
+/// Get all users, only admin user role can perform no restriction
+pub fn get_all(pool: &PoolType, auth_user: &AuthUser) -> Result<UsersResponse, ApiError> {
+    use crate::schema::users::dsl::{created_by, users};
 
     let conn = pool.get()?;
-    let all_users = users.load(&conn)?;
+
+    let mut all_users: Vec<User> = vec![];
+    if Role::is_admin(&auth_user.role) {
+        all_users = users.load(&conn)?;
+    } else if Role::is_cstm(&auth_user.role) {
+        // only load created sub users
+        let mut query = users.into_boxed();
+        query = query.filter(created_by.eq(auth_user.id.to_string()));
+        all_users = query.load::<User>(&conn)?;
+    }
 
     Ok(all_users.into())
 }
@@ -205,7 +214,9 @@ pub mod tests {
 
     pub fn get_all_users() -> Result<UsersResponse, ApiError> {
         let pool = get_pool();
-        get_all(&pool)
+        let admin = create_user("admin".to_string()).unwrap();
+
+        get_all(&pool, &admin.into())
     }
 
     pub fn create_user(role: String) -> Result<UserResponse, ApiError> {
