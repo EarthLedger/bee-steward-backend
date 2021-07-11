@@ -5,8 +5,10 @@ use crate::handlers::node::{
     AssignCustomerNodesRequest, AssignSubNodesRequest, NodeResponse, NodeResponses,
     QueryOptionRequest, QueryPage, QuerySort,
 };
+use crate::handlers::user::UserResponse;
 use crate::models::node_json::{get_node_info, load_by_server_cluster, NodeInfo};
-use crate::models::user::{AuthUser, Role};
+use crate::models::user::{find, AuthUser, Role};
+use crate::response::DEFAULT_PAGE_SIZE;
 use crate::schema::nodes;
 use crate::schema::servers;
 use chrono::{NaiveDateTime, Utc};
@@ -14,8 +16,6 @@ use diesel::mysql::Mysql;
 use diesel::prelude::*;
 use std::str::FromStr;
 use uuid::Uuid;
-
-const DEFAULT_PAGE_SIZE: i64 = 20;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Queryable, Identifiable, Insertable)]
 #[primary_key(addr)]
@@ -70,9 +70,27 @@ pub fn get_by_addr(pool: &PoolType, node_addr: &str) -> Result<NodeResponse, Api
         .first::<Node>(&conn)
         .map_err(|_| ApiError::NotFound(not_found))?;
 
+    let customer: Option<UserResponse> = if node.customer.is_some() {
+        find(
+            pool,
+            &Uuid::parse_str(&node.customer.as_ref().unwrap()).unwrap(),
+        )
+        .ok()
+    } else {
+        None
+    };
+
+    let sub: Option<UserResponse> = if node.sub.is_some() {
+        find(pool, &Uuid::parse_str(&node.sub.as_ref().unwrap()).unwrap()).ok()
+    } else {
+        None
+    };
+
     Ok(NodeResponse {
         info: get_node_info(&node.addr)?,
         node,
+        customer,
+        sub,
     })
 }
 
@@ -201,9 +219,26 @@ pub fn get_by_user(
     }
     let filter_nodes = query.load::<Node>(&conn)?;
     for node in filter_nodes {
+        let node_customer: Option<UserResponse> = if node.customer.is_some() {
+            find(
+                pool,
+                &Uuid::parse_str(&node.customer.as_ref().unwrap()).unwrap(),
+            )
+            .ok()
+        } else {
+            None
+        };
+        let node_sub: Option<UserResponse> = if node.sub.is_some() {
+            find(pool, &Uuid::parse_str(&node.sub.as_ref().unwrap()).unwrap()).ok()
+        } else {
+            None
+        };
+
         result.nodes.push(NodeResponse {
             info: get_node_info(&node.addr)?,
             node,
+            customer: node_customer,
+            sub: node_sub,
         })
     }
 

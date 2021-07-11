@@ -1,10 +1,12 @@
 use crate::database::PoolType;
 use crate::errors::ApiError;
+use crate::handlers::node::QueryOptionRequest;
 use crate::helpers::{respond_json, respond_ok};
 use crate::models::user::{
-    create, delete, find, get_all, update, AuthUser, NewUser, Role, UpdateUser, User,
+    create, delete, find, get_users as model_get_users, update, AuthUser, NewUser, Role,
+    UpdateUser, User,
 };
-use crate::response::Response;
+use crate::response::{Response, SUCCESS};
 use crate::validate::validate;
 use actix_web::web::{block, Data, HttpResponse, Json, Path};
 use rayon::prelude::*;
@@ -22,7 +24,12 @@ pub struct UserResponse {
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
-pub struct UsersResponse(pub Vec<UserResponse>);
+pub struct UsersResponse {
+    pub users: Vec<UserResponse>,
+    pub total: u32,
+    pub page_current: u32,
+    pub page_size: u32,
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]
 pub struct CreateUserRequest {
@@ -85,10 +92,15 @@ pub async fn get_login_user_info(
 /// Get all users
 pub async fn get_users(
     pool: Data<PoolType>,
+    params: Json<QueryOptionRequest>,
     auth_user: AuthUser,
-) -> Result<Json<UsersResponse>, ApiError> {
-    let users = block(move || get_all(&pool, &auth_user)).await?;
-    respond_json(users)
+) -> Result<Json<Response<UsersResponse>>, ApiError> {
+    let users = block(move || model_get_users(&pool, &auth_user, &params)).await?;
+    respond_json(Response {
+        code: 200,
+        msg: SUCCESS.to_string(),
+        data: users,
+    })
 }
 
 /// Create a user
@@ -192,36 +204,12 @@ impl From<User> for UserResponse {
     }
 }
 
-impl From<Vec<User>> for UsersResponse {
-    fn from(users: Vec<User>) -> Self {
-        UsersResponse(users.into_par_iter().map(|user| user.into()).collect())
-    }
-}
-
 #[cfg(test)]
 pub mod tests {
     use super::*;
     use crate::models::user::tests::create_user as model_create_user;
     use crate::tests::helpers::tests::{get_data_pool, get_pool};
     use chrono::Utc;
-
-    pub fn get_all_users() -> UsersResponse {
-        let pool = get_pool();
-        let admin = model_create_user("admin".to_string()).unwrap();
-        get_all(&pool, &admin.into()).unwrap()
-    }
-
-    pub fn get_first_users_id() -> Uuid {
-        get_all_users().0[0].id
-    }
-
-    #[actix_rt::test]
-    async fn it_gets_a_user() {
-        let first_user = &get_all_users().0[0];
-        let user_id: Path<Uuid> = get_first_users_id().into();
-        let response = get_user(user_id, get_data_pool()).await.unwrap();
-        assert_eq!(response.into_inner(), *first_user);
-    }
 
     #[actix_rt::test]
     async fn it_doesnt_find_a_user() {
@@ -242,29 +230,6 @@ pub mod tests {
             role: "admin".into(),
         });
         let response = create_user(
-            get_data_pool(),
-            Json(params.clone()),
-            AuthUser {
-                id: "0000".to_string(),
-                username: "test".to_string(),
-                role: "admin".to_string(),
-            },
-        )
-        .await
-        .unwrap();
-        assert_eq!(response.into_inner().data.username, params.username);
-    }
-
-    #[actix_rt::test]
-    async fn it_updates_a_user() {
-        let first_user = &get_all_users().0[0];
-        let user_id: Path<Uuid> = get_first_users_id().into();
-        let params = Json(UpdateUserRequest {
-            username: first_user.username.clone(),
-            role: first_user.role.clone(),
-        });
-        let response = update_user(
-            user_id,
             get_data_pool(),
             Json(params.clone()),
             AuthUser {

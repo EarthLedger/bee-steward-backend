@@ -1,5 +1,6 @@
 use crate::database::PoolType;
 use crate::errors::ApiError;
+use crate::handlers::user::UserResponse;
 use crate::helpers::{respond_json, respond_ok};
 use crate::models::node::{
     assign_nodes_for_customer, assign_nodes_for_sub, get_by_addr, get_by_user, Node,
@@ -23,6 +24,8 @@ pub struct QuerySubNodeRequest {
 pub struct NodeResponse {
     pub node: Node,
     pub info: NodeInfo,
+    pub customer: Option<UserResponse>,
+    pub sub: Option<UserResponse>,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]

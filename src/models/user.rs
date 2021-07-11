@@ -1,7 +1,9 @@
 use crate::auth::hash;
 use crate::database::PoolType;
 use crate::errors::ApiError;
+use crate::handlers::node::QueryOptionRequest;
 use crate::handlers::user::{UserResponse, UsersResponse};
+use crate::response::DEFAULT_PAGE_SIZE;
 use crate::schema::users;
 use chrono::{NaiveDateTime, Utc};
 use diesel::prelude::*;
@@ -96,23 +98,103 @@ pub struct AuthUser {
     pub role: String,
 }
 
-/// Get all users, only admin user role can perform no restriction
-pub fn get_all(pool: &PoolType, auth_user: &AuthUser) -> Result<UsersResponse, ApiError> {
-    use crate::schema::users::dsl::{created_by, users};
+pub fn get_users_count(
+    pool: &PoolType,
+    options: &QueryOptionRequest,
+    auth_user: &AuthUser,
+) -> Result<u32, ApiError> {
+    use crate::schema::users::dsl::*;
 
-    let conn = pool.get()?;
+    let mut query = users.into_boxed();
 
-    let mut all_users: Vec<User> = vec![];
-    if Role::is_admin(&auth_user.role) {
-        all_users = users.load(&conn)?;
-    } else if Role::is_cstm(&auth_user.role) {
-        // only load created sub users
-        let mut query = users.into_boxed();
-        query = query.filter(created_by.eq(auth_user.id.to_string()));
-        all_users = query.load::<User>(&conn)?;
+    // check user role
+    let auth_role = Role::from_str(&auth_user.role).unwrap_or(Role::None);
+    match auth_role {
+        Role::Admin => {
+            // no customer or sub filter, can query all
+        }
+        Role::Cstm => {
+            // customer filter
+            query = query.filter(created_by.eq(auth_user.id.to_string()));
+        }
+        Role::Sub => {
+            // sub filter
+            return Err(ApiError::BadRequest("role fail".to_string()));
+        }
+        Role::None => return Err(ApiError::BadRequest("role fail".to_string())),
     }
 
-    Ok(all_users.into())
+    let conn = pool.get()?;
+    let total: i64 = query.count().get_result(&conn).unwrap();
+
+    Ok(total as u32)
+}
+
+/// Get all users, only admin user role can perform no restriction
+pub fn get_users(
+    pool: &PoolType,
+    auth_user: &AuthUser,
+    options: &QueryOptionRequest,
+) -> Result<UsersResponse, ApiError> {
+    use crate::schema::users::dsl::*;
+
+    let mut query = users.into_boxed();
+
+    // check user role
+    let auth_role = Role::from_str(&auth_user.role).unwrap_or(Role::None);
+    match auth_role {
+        Role::Admin => {
+            // no customer or sub filter, can query all
+        }
+        Role::Cstm => {
+            // customer filter
+            query = query.filter(created_by.eq(auth_user.id.to_string()));
+        }
+        Role::Sub => {
+            // sub filter
+            return Err(ApiError::BadRequest("role fail".to_string()));
+        }
+        Role::None => return Err(ApiError::BadRequest("role fail".to_string())),
+    }
+
+    query = query.order_by(created_by.desc());
+    let total = get_users_count(pool, options, auth_user)?;
+    let conn = pool.get()?;
+
+    //let total: i64 = query.count().get_result(&conn).unwrap();
+    let mut result = UsersResponse {
+        users: vec![],
+        total,
+        page_current: 0,
+        page_size: DEFAULT_PAGE_SIZE as u32,
+    };
+
+    // check page
+    if options.page.is_some() {
+        let page = options.page.as_ref().unwrap();
+        query = query
+            .offset(((page.current - 1) * page.size) as i64)
+            .limit(page.size as i64);
+        result.page_size = page.size;
+        result.page_current = page.current;
+    } else {
+        // user default, page size 20
+        query = query.limit(DEFAULT_PAGE_SIZE);
+    }
+
+    if Role::is_admin(&auth_user.role) {
+        // admin no limit
+    } else if Role::is_cstm(&auth_user.role) {
+        // only load created sub users
+        query = query.filter(created_by.eq(auth_user.id.to_string()));
+    }
+    result.users = query
+        .load::<User>(&conn)?
+        .into_iter()
+        .map(|user| user.into())
+        .collect();
+
+    Ok(result)
 }
 
 /// Find a user by the user's id or error out
@@ -216,7 +298,14 @@ pub mod tests {
         let pool = get_pool();
         let admin = create_user("admin".to_string()).unwrap();
 
-        get_all(&pool, &admin.into())
+        get_users(
+            &pool,
+            &admin.into(),
+            &QueryOptionRequest {
+                page: None,
+                order: None,
+            },
+        )
     }
 
     pub fn create_user(role: String) -> Result<UserResponse, ApiError> {
@@ -242,7 +331,7 @@ pub mod tests {
     #[test]
     fn test_find() {
         let users = get_all_users().unwrap();
-        let user = &users.0[0];
+        let user = &users.users[0];
         let found_user = find(&get_pool(), &user.id).unwrap();
         assert_eq!(user, &found_user);
     }
@@ -266,7 +355,7 @@ pub mod tests {
     #[test]
     fn it_updates_a_user() {
         let users = get_all_users().unwrap();
-        let user = &users.0[1];
+        let user = &users.users[1];
         let update_user = UpdateUser {
             id: user.id.to_string(),
             username: Uuid::new_v4().to_string(),
