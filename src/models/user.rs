@@ -198,7 +198,7 @@ pub fn get_users(
 }
 
 /// Find a user by the user's id or error out
-pub fn find(pool: &PoolType, user_id: &Uuid) -> Result<UserResponse, ApiError> {
+pub fn find(pool: &PoolType, user_id: &str) -> Result<UserResponse, ApiError> {
     use crate::schema::users::dsl::{id, users};
 
     let not_found = format!("User {} not found", user_id);
@@ -250,7 +250,7 @@ pub fn update(pool: &PoolType, update_user: &UpdateUser) -> Result<UserResponse,
         .filter(id.eq(update_user.id.clone()))
         .set(update_user)
         .execute(&conn)?;
-    find(&pool, &Uuid::parse_str(&update_user.id)?)
+    find(&pool, &update_user.id)
 }
 
 /// Delete a user
@@ -332,14 +332,14 @@ pub mod tests {
     fn test_find() {
         let users = get_all_users().unwrap();
         let user = &users.users[0];
-        let found_user = find(&get_pool(), &user.id).unwrap();
+        let found_user = find(&get_pool(), &user.id.to_string()).unwrap();
         assert_eq!(user, &found_user);
     }
 
     #[test]
     fn it_doesnt_find_a_user() {
         let user_id = Uuid::new_v4();
-        let not_found_user = find(&get_pool(), &user_id);
+        let not_found_user = find(&get_pool(), &user_id.to_string());
         assert!(not_found_user.is_err());
     }
 
@@ -348,7 +348,7 @@ pub mod tests {
         let created = create_user("admin".to_string());
         assert!(created.is_ok());
         let unwrapped = created.unwrap();
-        let found_user = find(&get_pool(), &unwrapped.id).unwrap();
+        let found_user = find(&get_pool(), &unwrapped.id.to_string()).unwrap();
         assert_eq!(unwrapped, found_user);
     }
 
@@ -364,7 +364,7 @@ pub mod tests {
         };
         let updated = update(&get_pool(), &update_user);
         assert!(updated.is_ok());
-        let found_user = find(&get_pool(), &user.id).unwrap();
+        let found_user = find(&get_pool(), &user.id.to_string()).unwrap();
         assert_eq!(updated.unwrap(), found_user);
     }
 
@@ -385,10 +385,10 @@ pub mod tests {
     fn it_deletes_a_user() {
         let created = create_user("admin".to_string());
         let user_id = created.unwrap().id;
-        let user = find(&get_pool(), &user_id);
+        let user = find(&get_pool(), &user_id.to_string());
         assert!(user.is_ok());
         delete(&get_pool(), user_id).unwrap();
-        let user = find(&get_pool(), &user_id);
+        let user = find(&get_pool(), &user_id.to_string());
         assert!(user.is_err());
     }
 

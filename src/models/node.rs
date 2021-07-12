@@ -3,19 +3,16 @@ use crate::database::PoolType;
 use crate::errors::ApiError;
 use crate::handlers::node::{
     AssignCustomerNodesRequest, AssignSubNodesRequest, NodeResponse, NodeResponses,
-    QueryOptionRequest, QueryPage, QuerySort,
+    QueryOptionRequest,
 };
 use crate::handlers::user::UserResponse;
-use crate::models::node_json::{get_node_info, load_by_server_cluster, NodeInfo};
+use crate::models::node_json::{get_node_info, load_by_server_cluster};
 use crate::models::user::{find, AuthUser, Role};
 use crate::response::DEFAULT_PAGE_SIZE;
 use crate::schema::nodes;
-use crate::schema::servers;
 use chrono::{NaiveDateTime, Utc};
-use diesel::mysql::Mysql;
 use diesel::prelude::*;
 use std::str::FromStr;
-use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Queryable, Identifiable, Insertable)]
 #[primary_key(addr)]
@@ -71,23 +68,19 @@ pub fn get_by_addr(pool: &PoolType, node_addr: &str) -> Result<NodeResponse, Api
         .map_err(|_| ApiError::NotFound(not_found))?;
 
     let customer: Option<UserResponse> = if node.customer.is_some() {
-        find(
-            pool,
-            &Uuid::parse_str(&node.customer.as_ref().unwrap()).unwrap(),
-        )
-        .ok()
+        find(pool, &node.customer.as_ref().unwrap()).ok()
     } else {
         None
     };
 
     let sub: Option<UserResponse> = if node.sub.is_some() {
-        find(pool, &Uuid::parse_str(&node.sub.as_ref().unwrap()).unwrap()).ok()
+        find(pool, &node.sub.as_ref().unwrap()).ok()
     } else {
         None
     };
 
     Ok(NodeResponse {
-        info: get_node_info(&node.addr)?,
+        info: get_node_info(&node.addr).ok(),
         node,
         customer,
         sub,
@@ -99,7 +92,7 @@ pub fn get_count(
     options: &QueryOptionRequest,
     auth_user: &AuthUser,
 ) -> Result<u32, ApiError> {
-    use crate::schema::nodes::dsl::{created_by, customer, nodes, server_id, sub};
+    use crate::schema::nodes::dsl::{customer, nodes, sub};
 
     let mut query = nodes.into_boxed();
 
@@ -220,22 +213,18 @@ pub fn get_by_user(
     let filter_nodes = query.load::<Node>(&conn)?;
     for node in filter_nodes {
         let node_customer: Option<UserResponse> = if node.customer.is_some() {
-            find(
-                pool,
-                &Uuid::parse_str(&node.customer.as_ref().unwrap()).unwrap(),
-            )
-            .ok()
+            find(pool, &node.customer.as_ref().unwrap()).ok()
         } else {
             None
         };
         let node_sub: Option<UserResponse> = if node.sub.is_some() {
-            find(pool, &Uuid::parse_str(&node.sub.as_ref().unwrap()).unwrap()).ok()
+            find(pool, &node.sub.as_ref().unwrap()).ok()
         } else {
             None
         };
 
         result.nodes.push(NodeResponse {
-            info: get_node_info(&node.addr)?,
+            info: get_node_info(&node.addr).ok(),
             node,
             customer: node_customer,
             sub: node_sub,
@@ -384,6 +373,7 @@ impl From<NewNode> for Node {
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use crate::handlers::node::{QueryPage, QuerySort};
     use crate::models::node_json::update_node_status;
     use crate::models::user::tests::create_user;
     use crate::tests::helpers::tests::get_pool;

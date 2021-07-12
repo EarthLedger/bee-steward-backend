@@ -72,7 +72,7 @@ pub async fn get_user(
     user_id: Path<Uuid>,
     pool: Data<PoolType>,
 ) -> Result<Json<UserResponse>, ApiError> {
-    let user = block(move || find(&pool, &user_id)).await?;
+    let user = block(move || find(&pool, &user_id.to_string())).await?;
     respond_json(user)
 }
 
@@ -81,7 +81,7 @@ pub async fn get_login_user_info(
     auth_user: AuthUser,
     pool: Data<PoolType>,
 ) -> Result<Json<Response<UserResponse>>, ApiError> {
-    let user = block(move || find(&pool, &Uuid::parse_str(&auth_user.id).unwrap())).await?;
+    let user = block(move || find(&pool, &auth_user.id.to_string())).await?;
     respond_json(Response {
         code: 200,
         msg: "success".to_string(),
@@ -156,7 +156,7 @@ pub async fn update_user(
     if !Role::is_admin(&auth_user.role) {
         // not admin, only creator can operate
         // load update user
-        let user = find(&pool, &user_id)?;
+        let user = find(&pool, &user_id.to_string())?;
         if user.created_by != Uuid::parse_str(&auth_user.id).unwrap() {
             warn!(
                 "update user, but not admin and not creator: {:?}",
@@ -248,10 +248,10 @@ pub mod tests {
         let created = model_create_user("admin".to_string());
         let user_id = created.unwrap().id;
         let user_id_path: Path<Uuid> = user_id.into();
-        let user = find(&get_pool(), &user_id);
+        let user = find(&get_pool(), &user_id.to_string());
         assert!(user.is_ok());
         delete_user(user_id_path, get_data_pool()).await.unwrap();
-        let user = find(&get_pool(), &user_id);
+        let user = find(&get_pool(), &user_id.to_string());
         assert!(user.is_err());
     }
 }
