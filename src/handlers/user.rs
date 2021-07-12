@@ -1,3 +1,4 @@
+use crate::auth::hash;
 use crate::database::PoolType;
 use crate::errors::ApiError;
 use crate::handlers::node::QueryOptionRequest;
@@ -64,6 +65,12 @@ pub struct UpdateUserRequest {
         message = "name is required and must be at least 3 characters"
     ))]
     pub username: String,
+    #[validate(length(
+        min = 6,
+        message = "password is required and must be at least 6 characters"
+    ))]
+    pub password: String,
+
     pub role: String,
 }
 
@@ -166,6 +173,13 @@ pub async fn update_user(
                 "role not permit".to_string()
             ]));
         }
+
+        // check role
+        if !Role::is_sub(&params.role) {
+            return Err(ApiError::ValidationError(vec![
+                "role not permit".to_string()
+            ]));
+        }
     }
 
     // temporarily use the user's id for updated_at
@@ -173,6 +187,7 @@ pub async fn update_user(
     let update_user = UpdateUser {
         id: user_id.to_string(),
         username: params.username.to_string(),
+        password: hash(&params.password),
         role: params.role.to_string(),
         updated_by: user_id.to_string(),
     };

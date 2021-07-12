@@ -32,9 +32,9 @@ pub fn routes(cfg: &mut web::ServiceConfig) {
                         .route("/list", web::post().to(get_users))
                         .route("/info", web::get().to(get_login_user_info))
                         .route("/{id}", web::get().to(get_user))
-                        .route("/{id}", web::put().to(update_user))
-                        .route("/{id}", web::delete().to(delete_user))
-                        .route("", web::post().to(create_user)),
+                        .route("/{id}/update", web::post().to(update_user))
+                        .route("/{id}/delete", web::delete().to(delete_user))
+                        .route("/create", web::post().to(create_user)),
                 ) // NODE routes
                 .service(
                     web::scope("/node")

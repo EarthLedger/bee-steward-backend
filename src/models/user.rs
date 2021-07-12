@@ -53,6 +53,10 @@ impl Role {
         Role::from_str(role).unwrap_or(Role::None) == Role::Cstm
     }
 
+    pub fn is_sub(role: &str) -> bool {
+        Role::from_str(role).unwrap_or(Role::None) == Role::Sub
+    }
+
     pub fn is_valid(role: &str) -> bool {
         role == Role::Admin.to_string()
             || role == Role::Cstm.to_string()
@@ -87,6 +91,7 @@ pub struct NewUser {
 pub struct UpdateUser {
     pub id: String,
     pub username: String,
+    pub password: String,
     pub role: String,
     pub updated_by: String,
 }
@@ -157,7 +162,7 @@ pub fn get_users(
         Role::None => return Err(ApiError::BadRequest("role fail".to_string())),
     }
 
-    query = query.order_by(created_by.desc());
+    query = query.order_by(created_at.desc());
     let total = get_users_count(pool, options, auth_user)?;
     let conn = pool.get()?;
 
@@ -359,6 +364,7 @@ pub mod tests {
         let update_user = UpdateUser {
             id: user.id.to_string(),
             username: Uuid::new_v4().to_string(),
+            password: hash("123456"),
             role: "admin".to_string(),
             updated_by: user.id.to_string(),
         };
@@ -374,6 +380,7 @@ pub mod tests {
         let update_user = UpdateUser {
             id: user_id.to_string(),
             username: "ModelUpdateFailure".to_string(),
+            password: hash("123456"),
             role: "admin".to_string(),
             updated_by: user_id.to_string(),
         };
