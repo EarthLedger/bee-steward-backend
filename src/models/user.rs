@@ -1,4 +1,5 @@
 use crate::auth::hash;
+use crate::config::CONFIG;
 use crate::database::PoolType;
 use crate::errors::ApiError;
 use crate::handlers::node::QueryOptionRequest;
@@ -244,6 +245,20 @@ pub fn create(pool: &PoolType, new_user: &User) -> Result<UserResponse, ApiError
     let conn = pool.get()?;
     diesel::insert_into(users).values(new_user).execute(&conn)?;
     Ok(new_user.clone().into())
+}
+
+pub fn create_admin(pool: &PoolType) {
+    let user_id = Uuid::new_v4();
+    let new_user = NewUser {
+        id: user_id.to_string(),
+        username: CONFIG.admin_user.to_string(),
+        password: hash(&CONFIG.admin_pwd),
+        role: "admin".to_string(),
+        created_by: user_id.to_string(),
+        updated_by: user_id.to_string(),
+    };
+    let user: User = new_user.into();
+    create(pool, &user);
 }
 
 /// Update a user

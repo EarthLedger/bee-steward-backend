@@ -9,6 +9,3 @@ CREATE TABLE users (
   updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
   UNIQUE (username)
 );
-
-insert into users (id, username, password, role, created_by, updated_by) values 
-('00000000-0000-0000-0000-000000000000', 'admin', '123', 'admin', '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000');

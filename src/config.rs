@@ -29,6 +29,8 @@ pub struct Config {
     pub session_timeout: i64,
     pub nodes_status_path: String,
     pub cluster_config_file: String,
+    pub admin_user: String,
+    pub admin_pwd: String,
 }
 
 // Throw the Config struct into a CONFIG lazy_static to avoid multiple processing

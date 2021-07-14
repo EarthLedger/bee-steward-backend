@@ -26,11 +26,19 @@ pub struct PeerInfo {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+pub struct PeerBalance {
+    peer: String,
+    balance: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct NodeInfo {
     pub id: String,
     pub cheques: Vec<PeerInfo>,
     pub peers: u32,
     pub address: String,
+    pub depth: u32,
+    pub balances: Vec<PeerBalance>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

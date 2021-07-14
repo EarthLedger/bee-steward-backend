@@ -95,4 +95,10 @@ pub mod tests {
         let decoded = decode_jwt(&jwt).unwrap();
         assert_eq!(private_claim, decoded);
     }
+
+    #[test]
+    fn hashes_admin_password() {
+        let hashed = hash(&CONFIG.admin_pwd);
+        println!("{}", hashed);
+    }
 }
