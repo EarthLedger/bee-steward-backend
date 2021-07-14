@@ -584,4 +584,86 @@ pub mod tests {
 
         assert_eq!(count, 76);
     }
+
+    #[test]
+    fn formal_assign_nodes() {
+        // should not put into test!!!
+        let params = AssignCustomerNodesRequest {
+            customer: "e497059d-7c4e-4516-9a83-ee3dd629c0b7".to_string(),
+            server_id: "0003".to_string(),
+            node_start: 0,
+            node_end: 99,
+        };
+        assert!(assign_nodes_for_customer(
+            &get_pool(),
+            &params,
+            "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
+        )
+        .is_ok());
+
+        let params = AssignCustomerNodesRequest {
+            customer: "e497059d-7c4e-4516-9a83-ee3dd629c0b7".to_string(),
+            server_id: "0004".to_string(),
+            node_start: 0,
+            node_end: 99,
+        };
+        assert!(assign_nodes_for_customer(
+            &get_pool(),
+            &params,
+            "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
+        )
+        .is_ok());
+
+        let params = AssignCustomerNodesRequest {
+            customer: "e497059d-7c4e-4516-9a83-ee3dd629c0b7".to_string(),
+            server_id: "0005".to_string(),
+            node_start: 0,
+            node_end: 99,
+        };
+        assert!(assign_nodes_for_customer(
+            &get_pool(),
+            &params,
+            "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
+        )
+        .is_ok());
+
+        let params = AssignCustomerNodesRequest {
+            customer: "e497059d-7c4e-4516-9a83-ee3dd629c0b7".to_string(),
+            server_id: "0006".to_string(),
+            node_start: 0,
+            node_end: 99,
+        };
+        assert!(assign_nodes_for_customer(
+            &get_pool(),
+            &params,
+            "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
+        )
+        .is_ok());
+
+        let params = AssignCustomerNodesRequest {
+            customer: "e497059d-7c4e-4516-9a83-ee3dd629c0b7".to_string(),
+            server_id: "0007".to_string(),
+            node_start: 0,
+            node_end: 99,
+        };
+        assert!(assign_nodes_for_customer(
+            &get_pool(),
+            &params,
+            "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
+        )
+        .is_ok());
+
+        let params = AssignCustomerNodesRequest {
+            customer: "e497059d-7c4e-4516-9a83-ee3dd629c0b7".to_string(),
+            server_id: "0008".to_string(),
+            node_start: 0,
+            node_end: 99,
+        };
+        assert!(assign_nodes_for_customer(
+            &get_pool(),
+            &params,
+            "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
+        )
+        .is_ok());
+    }
 }

@@ -2,8 +2,7 @@ use crate::config::CONFIG;
 use crate::errors::ApiError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::{read_dir, File};
-use std::io::Error;
+use std::fs::File;
 use std::sync::Mutex;
 use walkdir::WalkDir;
 
@@ -39,6 +38,10 @@ pub struct NodeInfo {
     pub address: String,
     pub depth: u32,
     pub balances: Vec<PeerBalance>,
+    pub node_xbzz: String,
+    pub node_xdai: String,
+    pub chequebook_xbzz: String,
+    pub chequebook_address: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
