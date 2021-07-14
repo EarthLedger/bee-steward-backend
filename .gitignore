@@ -2,3 +2,6 @@
 .env
 .cargo
 .DS_Store
+setup_db_production.sh
+setup_db_test.sh
+

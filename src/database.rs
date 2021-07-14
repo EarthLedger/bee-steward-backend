@@ -41,7 +41,12 @@ pub fn init_pool<T>(config: Config) -> Result<Pool<T>, PoolError>
 where
     T: Connection + 'static,
 {
-    let manager = ConnectionManager::<T>::new(config.database_url);
+    let database_url = if config.env == "test" {
+        config.database_test_url
+    } else {
+        config.database_url
+    };
+    let manager = ConnectionManager::<T>::new(database_url);
     Pool::builder().build(manager)
 }
 

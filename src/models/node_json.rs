@@ -15,7 +15,7 @@ use walkdir::WalkDir;
 pub struct Cheque {
     beneficiary: String,
     chequebook: String,
-    payout: u128,
+    payout: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]

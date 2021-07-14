@@ -138,8 +138,8 @@ pub async fn create_user(
         username: params.username.to_string(),
         password: params.password.to_string(),
         role: params.role.to_string(),
-        created_by: user_id.to_string(),
-        updated_by: user_id.to_string(),
+        created_by: auth_user.id.to_string(),
+        updated_by: auth_user.id.to_string(),
     }
     .into();
     let user = block(move || create(&pool, &new_user)).await?;

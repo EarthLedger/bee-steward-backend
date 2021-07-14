@@ -422,4 +422,20 @@ pub mod tests {
         let cstm = Role::from_str("cstm").unwrap();
         assert_eq!(Role::Cstm, cstm);
     }
+
+    #[test]
+    fn it_create_admin() {
+        // should not put into test!!!
+        let user_id = Uuid::new_v4();
+        let new_user = NewUser {
+            id: user_id.to_string(),
+            username: CONFIG.admin_user.to_string(),
+            password: CONFIG.admin_pwd.to_string(),
+            role: "admin".to_string(),
+            created_by: user_id.to_string(),
+            updated_by: user_id.to_string(),
+        };
+        let user: User = new_user.into();
+        create(&get_pool(), &user).unwrap();
+    }
 }

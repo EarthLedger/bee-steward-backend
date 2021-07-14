@@ -17,6 +17,7 @@ pub struct Config {
     pub auth_salt: String,
     pub database: DatabaseConnection,
     pub database_url: String,
+    pub database_test_url: String,
     pub jwt_expiration: i64,
     pub jwt_key: String,
     pub redis_url: String,
@@ -31,6 +32,7 @@ pub struct Config {
     pub cluster_config_file: String,
     pub admin_user: String,
     pub admin_pwd: String,
+    pub env: String,
 }
 
 // Throw the Config struct into a CONFIG lazy_static to avoid multiple processing
