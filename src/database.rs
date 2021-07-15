@@ -41,7 +41,7 @@ pub fn init_pool<T>(config: Config) -> Result<Pool<T>, PoolError>
 where
     T: Connection + 'static,
 {
-    let database_url = if config.env == "test" {
+    let database_url = if config.db_env == "test" {
         config.database_test_url
     } else {
         config.database_url

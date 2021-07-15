@@ -32,7 +32,7 @@ pub struct Config {
     pub cluster_config_file: String,
     pub admin_user: String,
     pub admin_pwd: String,
-    pub env: String,
+    pub db_env: String,
     pub server_worker_num: u32,
 }
 
