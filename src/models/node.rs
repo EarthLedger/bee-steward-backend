@@ -588,7 +588,8 @@ pub mod tests {
     #[test]
     fn formal_assign_nodes() {
         // should not put into test!!!
-        let params = AssignCustomerNodesRequest {
+        // dahao
+        /*let params = AssignCustomerNodesRequest {
             customer: "e497059d-7c4e-4516-9a83-ee3dd629c0b7".to_string(),
             server_id: "0003".to_string(),
             node_start: 0,
@@ -664,6 +665,85 @@ pub mod tests {
             &params,
             "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
         )
+        .is_ok());*/
+
+        // longda
+        /*let params = AssignCustomerNodesRequest {
+            customer: "e150535f-c285-41b8-9e34-e7cac1c9d09c".to_string(),
+            server_id: "0009".to_string(),
+            node_start: 50,
+            node_end: 69,
+        };
+        assert!(assign_nodes_for_customer(
+            &get_pool(),
+            &params,
+            "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
+        )
+        .is_ok());*/
+
+        // longda-gaosiming
+        /*let assign_params = AssignSubNodesRequest {
+            sub: "98d0e3c3-dfd8-403a-863c-bda8a93a7728".to_string(),
+            addresses: vec!["0xeed21b0f4ddb012d11c8b9d9fa49bc78579864cb".to_string()],
+        };
+        assign_nodes_for_sub(
+            &get_pool(),
+            &assign_params,
+            "e150535f-c285-41b8-9e34-e7cac1c9d09c",
+        )
+        .unwrap();*/
+
+        // yuanjin
+        /*let params = AssignCustomerNodesRequest {
+            customer: "7fc16dc4-6adf-4cb5-b9dc-6dab5526dcd5".to_string(),
+            server_id: "0009".to_string(),
+            node_start: 0,
+            node_end: 49,
+        };
+        assert!(assign_nodes_for_customer(
+            &get_pool(),
+            &params,
+            "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
+        )
+        .is_ok());*/
+
+        /*let params = AssignCustomerNodesRequest {
+            customer: "7fc16dc4-6adf-4cb5-b9dc-6dab5526dcd5".to_string(),
+            server_id: "0010".to_string(),
+            node_start: 0,
+            node_end: 99,
+        };
+        assert!(assign_nodes_for_customer(
+            &get_pool(),
+            &params,
+            "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
+        )
+        .is_ok());*/
+
+        /*let params = AssignCustomerNodesRequest {
+            customer: "7fc16dc4-6adf-4cb5-b9dc-6dab5526dcd5".to_string(),
+            server_id: "0012".to_string(),
+            node_start: 0,
+            node_end: 99,
+        };
+        assert!(assign_nodes_for_customer(
+            &get_pool(),
+            &params,
+            "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
+        )
         .is_ok());
+
+        let params = AssignCustomerNodesRequest {
+            customer: "7fc16dc4-6adf-4cb5-b9dc-6dab5526dcd5".to_string(),
+            server_id: "0013".to_string(),
+            node_start: 0,
+            node_end: 99,
+        };
+        assert!(assign_nodes_for_customer(
+            &get_pool(),
+            &params,
+            "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
+        )
+        .is_ok());*/
     }
 }
