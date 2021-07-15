@@ -33,6 +33,7 @@ pub struct Config {
     pub admin_user: String,
     pub admin_pwd: String,
     pub env: String,
+    pub server_worker_num: u32,
 }
 
 // Throw the Config struct into a CONFIG lazy_static to avoid multiple processing

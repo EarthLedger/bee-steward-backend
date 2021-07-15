@@ -1,5 +1,4 @@
 //! Spin up a HTTPServer
-
 use crate::auth::get_identity_service;
 use crate::cache::add_cache;
 use crate::config::CONFIG;
@@ -37,5 +36,8 @@ pub async fn server() -> std::io::Result<()> {
         server.bind(&CONFIG.server)?
     };
 
-    server.run().await
+    server
+        .workers(CONFIG.server_worker_num as usize)
+        .run()
+        .await
 }
