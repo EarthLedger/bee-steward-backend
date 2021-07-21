@@ -2,7 +2,6 @@
 mod tests {
     use crate::handlers::user::CreateUserRequest;
     use crate::tests::helpers::tests::{assert_get, assert_post};
-    use actix_web::web::Path;
     use uuid::Uuid;
 
     const PATH: &str = "/api/v1/user";

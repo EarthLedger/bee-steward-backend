@@ -1,14 +1,14 @@
 use crate::database::PoolType;
 use crate::errors::ApiError;
 use crate::handlers::user::UserResponse;
-use crate::helpers::{respond_json, respond_ok};
+use crate::helpers::respond_json;
 use crate::models::node::{
     assign_nodes_for_customer, assign_nodes_for_sub, get_by_addr, get_by_user, Node,
 };
 use crate::models::node_json::NodeInfo;
-use crate::models::user::{AuthUser, Role, User};
+use crate::models::user::{AuthUser, Role};
 use crate::response::{Response, SUCCESS};
-use actix_web::web::{block, Data, HttpResponse, Json, Path};
+use actix_web::web::{block, Data, Json, Path};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct QueryCustomerNodeRequest {
@@ -72,7 +72,7 @@ pub struct AssignSubNodesRequest {
 pub async fn query_by_addr(
     pool: Data<PoolType>,
     node_addr: Path<String>,
-    auth_user: AuthUser,
+    _auth_user: AuthUser,
 ) -> Result<Json<Response<NodeResponse>>, ApiError> {
     let node = block(move || get_by_addr(&pool, &node_addr)).await?;
     respond_json(Response {

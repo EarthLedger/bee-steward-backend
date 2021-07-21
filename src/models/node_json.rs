@@ -65,8 +65,8 @@ type ClusterConfig = HashMap<String, CustomerClusterInfo>;
 // Global node status hash map
 lazy_static! {
     #[derive(Debug)]
-    static ref g_node_map: Mutex<HashMap<String, NodeInfo>> = {
-        let mut map = HashMap::new();
+    static ref G_NODE_MAP: Mutex<HashMap<String, NodeInfo>> = {
+        let map = HashMap::new();
         Mutex::new(map)
     };
 }
@@ -123,7 +123,7 @@ pub fn load_by_server_cluster(server_id: &str) -> Result<ClusterStatus, ApiError
 }
 
 pub fn get_node_info(addr: &str) -> Result<NodeInfo, ApiError> {
-    match g_node_map.lock().unwrap().get(addr) {
+    match G_NODE_MAP.lock().unwrap().get(addr) {
         Some(info) => Ok(info.clone()),
         None => Err(ApiError::NotFound("not found node status".to_string())),
     }
@@ -151,10 +151,12 @@ pub fn update_node_status() -> Result<(), ApiError> {
                 Ok(nodes_status) => {
                     //println!("status: {:?}", nodes_status);
                     // go through json to update node status
-                    let mut map = g_node_map.lock().unwrap();
+                    let mut map = G_NODE_MAP.lock().unwrap();
                     for node in nodes_status.updates {
                         map.insert(node.address.clone(), node);
                     }
+
+                    // add to db
                 }
                 Err(e) => println!("error: {:?}", e),
             }

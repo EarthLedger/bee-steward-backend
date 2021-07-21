@@ -2,15 +2,14 @@ use crate::auth::{create_jwt, hash, PrivateClaim};
 use crate::database::PoolType;
 use crate::errors::ApiError;
 use crate::handlers::user::UserResponse;
-use crate::helpers::{respond_json, respond_ok};
+use crate::helpers::respond_json;
 use crate::models::user::find_by_auth;
 use crate::response::Response;
 use crate::validate::validate;
 use actix_identity::Identity;
-use actix_web::web::{block, Data, HttpResponse, Json};
+use actix_web::web::{block, Data, Json};
 use serde::Serialize;
 use uuid::Uuid;
-use validator::Validate;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]
 pub struct LoginRequest {

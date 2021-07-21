@@ -106,7 +106,7 @@ pub struct AuthUser {
 
 pub fn get_users_count(
     pool: &PoolType,
-    options: &QueryOptionRequest,
+    _options: &QueryOptionRequest,
     auth_user: &AuthUser,
 ) -> Result<u32, ApiError> {
     use crate::schema::users::dsl::*;
@@ -258,7 +258,7 @@ pub fn create_admin(pool: &PoolType) {
         updated_by: user_id.to_string(),
     };
     let user: User = new_user.into();
-    create(pool, &user);
+    let _ = create(pool, &user);
 }
 
 /// Update a user

@@ -10,7 +10,6 @@ use crate::models::user::{
 use crate::response::{Response, SUCCESS};
 use crate::validate::validate;
 use actix_web::web::{block, Data, HttpResponse, Json, Path};
-use rayon::prelude::*;
 use serde::Serialize;
 use std::str::FromStr;
 use uuid::Uuid;

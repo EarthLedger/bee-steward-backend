@@ -1,4 +1,3 @@
-#![recursion_limit = "256"]
 use crate::database::PoolType;
 use crate::errors::ApiError;
 use crate::handlers::node::{
@@ -89,7 +88,7 @@ pub fn get_by_addr(pool: &PoolType, node_addr: &str) -> Result<NodeResponse, Api
 
 pub fn get_count(
     pool: &PoolType,
-    options: &QueryOptionRequest,
+    _options: &QueryOptionRequest,
     auth_user: &AuthUser,
 ) -> Result<u32, ApiError> {
     use crate::schema::nodes::dsl::{customer, nodes, sub};
