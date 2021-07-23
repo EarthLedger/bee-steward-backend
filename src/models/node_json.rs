@@ -1,5 +1,8 @@
 use crate::config::CONFIG;
 use crate::errors::ApiError;
+use crate::models::node_info::{create_node_info, NewNodeInfo};
+use num_bigint::BigUint;
+use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
@@ -31,6 +34,13 @@ pub struct PeerBalance {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+pub struct Settlement {
+    peer: String,
+    received: String,
+    sent: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct NodeInfo {
     pub id: String,
     pub cheques: Vec<PeerInfo>,
@@ -42,6 +52,7 @@ pub struct NodeInfo {
     pub node_xdai: String,
     pub chequebook_xbzz: String,
     pub chequebook_address: String,
+    pub settlements: Vec<Settlement>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -153,6 +164,7 @@ pub fn update_node_status() -> Result<(), ApiError> {
                     // go through json to update node status
                     let mut map = G_NODE_MAP.lock().unwrap();
                     for node in nodes_status.updates {
+                        //update_db(&node);
                         map.insert(node.address.clone(), node);
                     }
 
@@ -164,6 +176,42 @@ pub fn update_node_status() -> Result<(), ApiError> {
     }
 
     Ok(())
+}
+
+fn update_db(node: &NodeInfo) {
+    let mut db_node = NewNodeInfo {
+        addr: node.address.clone(),
+        cheque_book_addr: node.chequebook_address.clone(),
+        run_status: 1,
+        connection: node.peers as i32,
+        depth: node.depth as i32,
+        cheque_received_count: 0,
+        cheque_received_balance: "0".to_string(),
+        peer_max_postive_balance: "0".to_string(),
+        node_bzz: node.node_xbzz.clone(),
+        node_xdai: node.node_xdai.clone(),
+        cheque_bzz: node.chequebook_xbzz.clone(),
+        created_by: "0".to_string(),
+        updated_by: "0".to_string(),
+    };
+
+    // handle cheque count and total balance
+    let mut total_cheque_received_balance: BigUint = Zero::zero();
+    for cheque in &node.cheques {
+        match &cheque.lastreceived {
+            Some(item) => {
+                let payout = BigUint::from_bytes_be(item.payout.as_bytes());
+                total_cheque_received_balance += payout;
+                db_node.cheque_received_count += 1;
+            }
+            None => {}
+        }
+    }
+    db_node.cheque_received_balance = total_cheque_received_balance.to_string();
+
+    if node.balances.len() > 0 {
+        db_node.peer_max_postive_balance = node.balances[0].balance.clone();
+    }
 }
 
 #[cfg(test)]

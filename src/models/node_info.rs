@@ -1,17 +1,8 @@
 use crate::database::PoolType;
 use crate::errors::ApiError;
-use crate::handlers::node::{
-    AssignCustomerNodesRequest, AssignSubNodesRequest, NodeResponse, NodeResponses,
-    QueryOptionRequest,
-};
-//use crate::handlers::user::UserResponse;
-use crate::models::node_json::{get_node_info, load_by_server_cluster};
-//use crate::models::node::{find, AuthUser, Role};
-use crate::response::DEFAULT_PAGE_SIZE;
 use crate::schema::node_infos;
-use chrono::{NaiveDateTime, Utc};
+use chrono::NaiveDateTime;
 use diesel::prelude::*;
-use std::str::FromStr;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Queryable, Identifiable, Insertable)]
 #[primary_key(addr)]
@@ -71,10 +62,11 @@ pub fn create_node_info(pool: &PoolType, new_node_info: &NodeInfo) -> Result<Nod
     use crate::schema::node_infos::dsl::node_infos;
 
     let conn = pool.get()?;
-    diesel::insert_into(node_infos)
+
+    diesel::replace_into(node_infos)
         .values(new_node_info)
         .execute(&conn)?;
-    Ok(new_node_info.clone().into())
+    Ok(new_node_info.clone())
 }
 
 pub fn update_node_info(
@@ -97,8 +89,9 @@ pub fn get_by_addr(pool: &PoolType, node_addr: &str) -> Result<NodeInfo, ApiErro
 
     let not_found = format!("Node {} not found", node_addr);
     let conn = pool.get()?;
-    node_infos
+    let node = node_infos
         .filter(addr.eq(node_addr.to_string()))
         .first::<NodeInfo>(&conn)
-        .map_err(|_| ApiError::NotFound(not_found))?
+        .map_err(|_| ApiError::NotFound(not_found))?;
+    Ok(node)
 }

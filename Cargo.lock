@@ -891,6 +891,8 @@ dependencies = [
  "lazy_static",
  "listenfd",
  "log",
+ "num-bigint 0.4.0",
+ "num-traits",
  "r2d2",
  "r2d2-diesel",
  "rayon",
@@ -2102,6 +2104,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-bigint"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e0d047c1062aa51e256408c560894e5251f08925980e53cf1aa5bd00eec6512"
+dependencies = [
+ "autocfg 1.0.0",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2911,7 +2924,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b25ecba7165254f0c97d6c22a64b1122a03634b18d20a34daf21e18f892e618"
 dependencies = [
  "chrono",
- "num-bigint",
+ "num-bigint 0.2.6",
  "num-traits",
 ]
 
