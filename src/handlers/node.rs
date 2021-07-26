@@ -23,7 +23,7 @@ pub struct QuerySubNodeRequest {
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub struct NodeResponse {
     pub node: Node,
-    pub info: Option<NodeInfo>,
+    //pub info: Option<NodeInfo>,
     pub customer: Option<UserResponse>,
     pub sub: Option<UserResponse>,
 }

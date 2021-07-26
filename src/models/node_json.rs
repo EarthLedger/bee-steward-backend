@@ -1,6 +1,7 @@
 use crate::config::CONFIG;
 use crate::database::{init_pool, MysqlPool};
 use crate::errors::ApiError;
+use crate::models::node::{update_node_info, UpdateNodeInfo};
 use crate::models::node_info::{create_node_info, NewNodeInfo};
 use diesel::mysql::MysqlConnection;
 use num::bigint::BigInt;
@@ -183,9 +184,9 @@ pub fn update_node_status() -> Result<(), ApiError> {
 }
 
 fn update_db(node: &NodeInfo) {
-    let mut db_node = NewNodeInfo {
+    let mut db_node = UpdateNodeInfo {
         addr: node.address.clone(),
-        cheque_book_addr: node.chequebook_address.clone(),
+        cheque_book_addr: Some(node.chequebook_address.clone()),
         run_status: 1,
         connection: node.peers as i32,
         depth: node.depth as i32,
@@ -195,8 +196,6 @@ fn update_db(node: &NodeInfo) {
         node_bzz: node.node_xbzz.clone(),
         node_xdai: node.node_xdai.clone(),
         cheque_bzz: node.chequebook_xbzz.clone(),
-        created_by: "0".to_string(),
-        updated_by: "0".to_string(),
     };
 
     // handle cheque count and total balance
@@ -219,7 +218,7 @@ fn update_db(node: &NodeInfo) {
         db_node.peer_max_postive_balance = node.balances[0].balance.clone();
     }
 
-    let _ = create_node_info(&G_DB_POOL, &db_node.into());
+    let _ = update_node_info(&G_DB_POOL, &db_node);
 }
 
 #[cfg(test)]

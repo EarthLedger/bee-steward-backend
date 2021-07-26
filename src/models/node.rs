@@ -32,6 +32,16 @@ pub struct Node {
     pub server_idx: i32,
     pub customer: Option<String>,
     pub sub: Option<String>,
+    pub cheque_book_addr: Option<String>,
+    pub run_status: i32,
+    pub connection: i32,
+    pub depth: i32,
+    pub cheque_received_count: i32,
+    pub cheque_received_balance: String,
+    pub peer_max_postive_balance: String,
+    pub node_bzz: String,
+    pub node_xdai: String,
+    pub cheque_bzz: String,
     pub created_by: String,
     pub created_at: NaiveDateTime,
     pub updated_by: String,
@@ -67,6 +77,22 @@ pub struct UpdateNodeSub {
     pub updated_by: String,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, AsChangeset)]
+#[table_name = "nodes"]
+pub struct UpdateNodeInfo {
+    pub addr: String,
+    pub cheque_book_addr: Option<String>,
+    pub run_status: i32,
+    pub connection: i32,
+    pub depth: i32,
+    pub cheque_received_count: i32,
+    pub cheque_received_balance: String,
+    pub peer_max_postive_balance: String,
+    pub node_bzz: String,
+    pub node_xdai: String,
+    pub cheque_bzz: String,
+}
+
 pub fn get_by_addr(pool: &PoolType, node_addr: &str) -> Result<NodeResponse, ApiError> {
     use crate::schema::nodes::dsl::{addr, nodes};
 
@@ -90,7 +116,6 @@ pub fn get_by_addr(pool: &PoolType, node_addr: &str) -> Result<NodeResponse, Api
     };
 
     Ok(NodeResponse {
-        info: get_node_info(&node.addr).ok(),
         node,
         customer,
         sub,
@@ -134,11 +159,8 @@ pub fn get_by_user(
     options: &QueryOptionRequest,
     auth_user: &AuthUser,
 ) -> Result<NodeResponses, ApiError> {
-    use crate::schema::node_infos::dsl::node_infos;
+    use crate::schema::node_infos::dsl::{addr, node_infos};
     use crate::schema::nodes::dsl::{created_by, customer, nodes, server_id, server_idx, sub};
-
-    //joinable!(nodes -> users (created_by));
-    //allow_tables_to_appear_in_same_query!(users, nodes);
 
     let mut query = nodes.into_boxed();
 
@@ -221,10 +243,8 @@ pub fn get_by_user(
         // user default, page size 20
         query = query.limit(DEFAULT_PAGE_SIZE);
     }
-    //let filter_nodes = query.load::<Node>(&conn)?;
-    //joinable!(node_infos -> nodes (node_infos.addr));
-    let data = nodes.inner_join(node_infos).load(&conn)?;
-    /*for node in filter_nodes {
+    let filter_nodes = query.load::<Node>(&conn)?;
+    for node in filter_nodes {
         let node_customer: Option<UserResponse> = if node.customer.is_some() {
             find(pool, &node.customer.as_ref().unwrap()).ok()
         } else {
@@ -237,12 +257,11 @@ pub fn get_by_user(
         };
 
         result.nodes.push(NodeResponse {
-            info: get_node_info(&node.addr).ok(),
             node,
             customer: node_customer,
             sub: node_sub,
         })
-    }*/
+    }
 
     Ok(result)
 }
@@ -302,6 +321,21 @@ pub fn create_node(pool: &PoolType, new_node: &Node) -> Result<Node, ApiError> {
 }
 
 pub fn update_node(pool: &PoolType, update_node: &UpdateNode) -> Result<NodeResponse, ApiError> {
+    use crate::schema::nodes::dsl::{addr, nodes};
+
+    let conn = pool.get()?;
+    diesel::update(nodes)
+        .filter(addr.eq(update_node.addr.clone()))
+        .set(update_node)
+        .execute(&conn)?;
+
+    get_by_addr(&pool, &update_node.addr)
+}
+
+pub fn update_node_info(
+    pool: &PoolType,
+    update_node: &UpdateNodeInfo,
+) -> Result<NodeResponse, ApiError> {
     use crate::schema::nodes::dsl::{addr, nodes};
 
     let conn = pool.get()?;
@@ -375,6 +409,16 @@ impl From<NewNode> for Node {
             server_idx: node.server_idx,
             customer: node.customer,
             sub: node.sub,
+            cheque_book_addr: None,
+            run_status: 0,
+            connection: 0,
+            depth: 0,
+            cheque_received_count: 0,
+            cheque_received_balance: "0".to_string(),
+            peer_max_postive_balance: "0".to_string(),
+            node_bzz: "0".to_string(),
+            node_xdai: "0".to_string(),
+            cheque_bzz: "0".to_string(),
             created_by: node.created_by,
             created_at: Utc::now().naive_utc(),
             updated_by: node.updated_by,
@@ -681,7 +725,7 @@ pub mod tests {
         .is_ok());*/
 
         // longda
-        /*let params = AssignCustomerNodesRequest {
+        let params = AssignCustomerNodesRequest {
             customer: "e150535f-c285-41b8-9e34-e7cac1c9d09c".to_string(),
             server_id: "0009".to_string(),
             node_start: 50,
@@ -692,10 +736,10 @@ pub mod tests {
             &params,
             "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
         )
-        .is_ok());*/
+        .is_ok());
 
         // longda-gaosiming
-        /*let assign_params = AssignSubNodesRequest {
+        let assign_params = AssignSubNodesRequest {
             sub: "98d0e3c3-dfd8-403a-863c-bda8a93a7728".to_string(),
             addresses: vec!["0xeed21b0f4ddb012d11c8b9d9fa49bc78579864cb".to_string()],
         };
@@ -704,10 +748,10 @@ pub mod tests {
             &assign_params,
             "e150535f-c285-41b8-9e34-e7cac1c9d09c",
         )
-        .unwrap();*/
+        .unwrap();
 
         // yuanjin
-        /*let params = AssignCustomerNodesRequest {
+        let params = AssignCustomerNodesRequest {
             customer: "7fc16dc4-6adf-4cb5-b9dc-6dab5526dcd5".to_string(),
             server_id: "0009".to_string(),
             node_start: 0,
@@ -718,7 +762,7 @@ pub mod tests {
             &params,
             "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
         )
-        .is_ok());*/
+        .is_ok());
 
         /*let params = AssignCustomerNodesRequest {
             customer: "7fc16dc4-6adf-4cb5-b9dc-6dab5526dcd5".to_string(),
@@ -733,7 +777,7 @@ pub mod tests {
         )
         .is_ok());*/
 
-        /*let params = AssignCustomerNodesRequest {
+        let params = AssignCustomerNodesRequest {
             customer: "7fc16dc4-6adf-4cb5-b9dc-6dab5526dcd5".to_string(),
             server_id: "0012".to_string(),
             node_start: 0,
@@ -757,6 +801,6 @@ pub mod tests {
             &params,
             "6e031d1c-c313-47b6-9cc9-683a28ae9ab3",
         )
-        .is_ok());*/
+        .is_ok());
     }
 }
