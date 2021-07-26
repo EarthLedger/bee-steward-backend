@@ -1,8 +1,10 @@
 use crate::config::CONFIG;
+use crate::database::{init_pool, MysqlPool};
 use crate::errors::ApiError;
 use crate::models::node_info::{create_node_info, NewNodeInfo};
-use num_bigint::BigUint;
-use num_traits::{One, Zero};
+use diesel::mysql::MysqlConnection;
+use num::bigint::BigInt;
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
@@ -52,7 +54,7 @@ pub struct NodeInfo {
     pub node_xdai: String,
     pub chequebook_xbzz: String,
     pub chequebook_address: String,
-    pub settlements: Vec<Settlement>,
+    //pub settlements: Vec<Settlement>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -80,6 +82,8 @@ lazy_static! {
         let map = HashMap::new();
         Mutex::new(map)
     };
+
+    static ref G_DB_POOL: MysqlPool = init_pool::<MysqlConnection>(CONFIG.clone()).unwrap();
 }
 
 // TODO: change to use db
@@ -164,7 +168,7 @@ pub fn update_node_status() -> Result<(), ApiError> {
                     // go through json to update node status
                     let mut map = G_NODE_MAP.lock().unwrap();
                     for node in nodes_status.updates {
-                        //update_db(&node);
+                        update_db(&node);
                         map.insert(node.address.clone(), node);
                     }
 
@@ -196,11 +200,13 @@ fn update_db(node: &NodeInfo) {
     };
 
     // handle cheque count and total balance
-    let mut total_cheque_received_balance: BigUint = Zero::zero();
+    let mut total_cheque_received_balance: BigInt = Zero::zero();
     for cheque in &node.cheques {
         match &cheque.lastreceived {
             Some(item) => {
-                let payout = BigUint::from_bytes_be(item.payout.as_bytes());
+                println!("payout:{}", item.payout);
+                //let payout = BigUint::from_bytes_le(item.payout.as_bytes());
+                let payout = item.payout.parse::<BigInt>().unwrap();
                 total_cheque_received_balance += payout;
                 db_node.cheque_received_count += 1;
             }
@@ -212,6 +218,8 @@ fn update_db(node: &NodeInfo) {
     if node.balances.len() > 0 {
         db_node.peer_max_postive_balance = node.balances[0].balance.clone();
     }
+
+    let _ = create_node_info(&G_DB_POOL, &db_node.into());
 }
 
 #[cfg(test)]

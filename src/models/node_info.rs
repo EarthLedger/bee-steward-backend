@@ -1,11 +1,23 @@
 use crate::database::PoolType;
 use crate::errors::ApiError;
+use crate::models::node::Node;
 use crate::schema::node_infos;
-use chrono::NaiveDateTime;
+use chrono::{NaiveDateTime, Utc};
 use diesel::prelude::*;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Queryable, Identifiable, Insertable)]
+#[derive(
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Queryable,
+    Identifiable,
+    Insertable,
+    Associations,
+)]
 #[primary_key(addr)]
+#[belongs_to(Node, foreign_key = "addr")]
 pub struct NodeInfo {
     pub addr: String,
     pub cheque_book_addr: String,
@@ -56,6 +68,28 @@ pub struct UpdateNodeInfo {
     pub node_xdai: String,
     pub cheque_bzz: String,
     pub updated_by: String,
+}
+
+impl From<NewNodeInfo> for NodeInfo {
+    fn from(node: NewNodeInfo) -> Self {
+        NodeInfo {
+            addr: node.addr,
+            cheque_book_addr: node.cheque_book_addr,
+            run_status: node.run_status,
+            connection: node.connection,
+            depth: node.depth,
+            cheque_received_count: node.cheque_received_count,
+            cheque_received_balance: node.cheque_received_balance,
+            peer_max_postive_balance: node.peer_max_postive_balance,
+            node_bzz: node.node_bzz,
+            node_xdai: node.node_xdai,
+            cheque_bzz: node.cheque_bzz,
+            created_by: node.created_by,
+            created_at: Utc::now().naive_utc(),
+            updated_by: node.updated_by,
+            updated_at: Utc::now().naive_utc(),
+        }
+    }
 }
 
 pub fn create_node_info(pool: &PoolType, new_node_info: &NodeInfo) -> Result<NodeInfo, ApiError> {

@@ -5,6 +5,7 @@ use crate::handlers::node::{
     QueryOptionRequest,
 };
 use crate::handlers::user::UserResponse;
+use crate::models::node_info::NodeInfo;
 use crate::models::node_json::{get_node_info, load_by_server_cluster};
 use crate::models::user::{find, AuthUser, Role};
 use crate::response::DEFAULT_PAGE_SIZE;
@@ -13,7 +14,17 @@ use chrono::{NaiveDateTime, Utc};
 use diesel::prelude::*;
 use std::str::FromStr;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Queryable, Identifiable, Insertable)]
+#[derive(
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Queryable,
+    Identifiable,
+    Insertable,
+    Associations,
+)]
 #[primary_key(addr)]
 pub struct Node {
     pub addr: String,
@@ -123,6 +134,7 @@ pub fn get_by_user(
     options: &QueryOptionRequest,
     auth_user: &AuthUser,
 ) -> Result<NodeResponses, ApiError> {
+    use crate::schema::node_infos::dsl::node_infos;
     use crate::schema::nodes::dsl::{created_by, customer, nodes, server_id, server_idx, sub};
 
     //joinable!(nodes -> users (created_by));
@@ -209,8 +221,10 @@ pub fn get_by_user(
         // user default, page size 20
         query = query.limit(DEFAULT_PAGE_SIZE);
     }
-    let filter_nodes = query.load::<Node>(&conn)?;
-    for node in filter_nodes {
+    //let filter_nodes = query.load::<Node>(&conn)?;
+    //joinable!(node_infos -> nodes (node_infos.addr));
+    let data = nodes.inner_join(node_infos).load(&conn)?;
+    /*for node in filter_nodes {
         let node_customer: Option<UserResponse> = if node.customer.is_some() {
             find(pool, &node.customer.as_ref().unwrap()).ok()
         } else {
@@ -228,7 +242,7 @@ pub fn get_by_user(
             customer: node_customer,
             sub: node_sub,
         })
-    }
+    }*/
 
     Ok(result)
 }
