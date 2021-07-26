@@ -159,8 +159,9 @@ pub fn get_by_user(
     options: &QueryOptionRequest,
     auth_user: &AuthUser,
 ) -> Result<NodeResponses, ApiError> {
-    use crate::schema::node_infos::dsl::{addr, node_infos};
-    use crate::schema::nodes::dsl::{created_by, customer, nodes, server_id, server_idx, sub};
+    use crate::schema::nodes::dsl::{
+        cheque_received_count, connection, created_by, customer, nodes, server_id, server_idx, sub,
+    };
 
     let mut query = nodes.into_boxed();
 
@@ -212,6 +213,27 @@ pub fn get_by_user(
                     query = query.order_by(server_idx.asc());
                 } else {
                     query = query.order_by(server_idx.desc());
+                }
+            }
+            Some("connection") => {
+                if order.sort.unwrap_or(0) == 0 {
+                    query = query.order_by(connection.asc());
+                } else {
+                    query = query.order_by(connection.desc());
+                }
+            }
+            Some("cheque_received_count") => {
+                if order.sort.unwrap_or(0) == 0 {
+                    query = query.order_by(cheque_received_count.asc());
+                } else {
+                    query = query.order_by(cheque_received_count.desc());
+                }
+            }
+            Some("created_by") => {
+                if order.sort.unwrap_or(0) == 0 {
+                    query = query.order_by(created_by.asc());
+                } else {
+                    query = query.order_by(created_by.desc());
                 }
             }
             _ => {}
