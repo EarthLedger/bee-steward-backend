@@ -1,6 +1,4 @@
 #[macro_use]
-extern crate diesel;
-#[macro_use]
 extern crate lazy_static;
 #[macro_use]
 extern crate redis_async;
@@ -29,7 +27,6 @@ mod middleware;
 mod models;
 mod response;
 mod routes;
-mod schema;
 mod server;
 mod state;
 mod tests;
